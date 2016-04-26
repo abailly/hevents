@@ -1,0 +1,38 @@
+name:                hevents
+version:             0.1.0.0
+license:             MIT
+license-file:        LICENSE
+author:              Arnaud Bailly
+maintainer:          arnaud@igitur.io
+
+category:            Control
+
+build-type:          Simple
+cabal-version:       >=1.10
+
+Library
+  Default-Language:   Haskell2010
+  build-depends:    aeson, async, base, base64-bytestring, bytestring, clock, containers, extensible-effects, mtl, stm, text, time
+  hs-source-dirs:     src
+  exposed-modules:  Hevents, Hevents.Eff
+  other-modules:    Hevents.Model, Hevents.Store, Hevents.State, Hevents.Service
+                  , Hevents.Eff.Model, Hevents.Eff.State
+  default-extensions:
+                      OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
+                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances
+  ghc-options:     -Wall -Werror -fno-warn-orphans -threaded -rtsopts -auto-all -caf-all
+
+Test-Suite tests
+   Default-Language:  Haskell2010
+   hs-source-dirs:    test
+   default-extensions:
+                      OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
+                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances
+
+   type:              exitcode-stdio-1.0
+   main-is:           test.hs
+   ghc-options:       -threaded -Wall -Werror -fno-warn-orphans -rtsopts
+   build-depends: HUnit, QuickCheck, aeson, async >= 2.1.0, base, bytestring, bytestring-conversion, containers
+                , data-default, directory, either, exceptions, extensible-effects, filepath, free, hevents, hspec, hspec-wai
+                , http-client, http-types, lens, mtl, servant, servant-client, servant-server, stm
+                , test-framework, test-framework-hunit, test-framework-quickcheck2, text, time, wai
