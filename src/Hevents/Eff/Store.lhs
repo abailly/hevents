@@ -5,7 +5,7 @@ interpretation of the "requests" for this effect are left to low-level instances
 > 
 > import Data.Serialize
 > import Data.ByteString(ByteString)
-> import Data.Text(Text)
+> import Data.Text(Text, pack)
 > import Control.Eff
 > import Data.Either
 > import Control.Eff.Lift
@@ -31,9 +31,12 @@ A class for low-level implementation details of storage operations.
 >
 > instance Storage MemoryStorage where
 >   persist MemoryStorage{..} (Store x k)    = lift (modifyTVar' mem (runPut (put x):) >> return Nothing) >>= k
->   persist MemoryStorage{..} (Load o c g k) = lift (Right . reverse . rights . map g <$> readTVar mem) >>= k
->   persist MemoryStorage{..} (Reset k)      = undefined
->
+>   persist MemoryStorage{..} (Load o c g k) = lift (checkErrors . map g <$> readTVar mem) >>= k
+>     where
+>       checkErrors xs = case partitionEithers xs of
+>         ([],rs)   -> Right $ reverse $ rs
+>         ((e:_),_) -> Left  $ IOError $ pack e
+>   persist MemoryStorage{..} (Reset k)      = lift (writeTVar mem [] >> return Nothing) >>= k 
 >
 > type Getter a = ByteString -> Either String a
 
@@ -43,7 +46,9 @@ Store a serializable value in the underlying persistent storage appending it to 
 
 >   Store :: (Serialize x) => x                          ->  (Maybe StoreError      -> a) -> Store a
 
-Load a potentially partial stream from underlying storage.
+Load a potentially partial stream from underlying storage. We need to pass the `Getter x` function as
+the type of object to deserialize is packed within the constructor hence cannot be known by the
+`Storage` responsible for fetching the data.
 
 >   Load  :: (Serialize x) => Offset -> Count ->  Getter x -> (Either StoreError [x] -> a) -> Store a
 
@@ -62,8 +67,8 @@ Usual boilerplate to turn `Store` in Functor and create Free monad from construc
 >         => x -> Eff r (Maybe StoreError)
 > store x = send $ inj $ Store x id
 > 
-> load :: (Member Store r, Serialize x) => Offset -> Count -> Getter x -> Eff r (Either StoreError [x])
-> load off cnt g = send $ inj $ Load off cnt g id
+> load :: (Member Store r, Serialize x) => Offset -> Count -> Eff r (Either StoreError [x])
+> load off cnt = send $ inj $ Load off cnt (runGet get) id
 > 
 > reset :: (Member Store r) => Eff r (Maybe StoreError)
 > reset  = send $ inj $ Reset id
