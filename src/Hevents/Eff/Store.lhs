@@ -1,20 +1,22 @@
 An effect for persistently storing events to an underlying stream. `Store` effect is abstract in the sense that some parts of the
 interpretation of the "requests" for this effect are left to low-level instances of `Storage`.  
 
-> module Hevents.Eff.Store(module Hevents.Eff.Store.Events) where
+> module Hevents.Eff.Store(module Hevents.Eff.Store.Events,
+>                          Storage(..),Getter,Store(..),StoreError(..),Count(..),Offset(..),
+>                          store,load,reset,
+>                          runStore) where
 > 
 > import Data.Serialize
 > import Data.ByteString(ByteString)
-> import Data.Text(Text, pack)
+> import Data.Text(Text)
 > import Control.Eff
-> import Data.Either
 > import Control.Eff.Lift
 > import Control.Concurrent.STM
 > import Hevents.Eff.Store.Events
 > import Data.Int
 > 
-> newtype Offset = Offset { offset :: Int64 } deriving (Eq, Ord, Show, Read, Serialize)
-> newtype Count  = Count { count :: Int64 } deriving (Eq, Ord, Show, Read, Serialize)
+> newtype Offset = Offset { offset :: Int64 } deriving (Eq, Ord, Show, Read, Serialize, Num)
+> newtype Count  = Count { count :: Int64 } deriving (Eq, Ord, Show, Read, Serialize, Num)
 >
 > countAll :: Count
 > countAll = Count (-1)
@@ -26,17 +28,6 @@ A class for low-level implementation details of storage operations.
 
 > class Storage s where
 >   persist :: (SetMember Lift (Lift STM) (Store :> r)) =>  s -> Store (Eff (Store :> r) a) -> Eff (Store :> r) a
->
-> newtype MemoryStorage = MemoryStorage { mem :: TVar [ ByteString ] } 
->
-> instance Storage MemoryStorage where
->   persist MemoryStorage{..} (Store x k)    = lift (modifyTVar' mem (runPut (put x):) >> return Nothing) >>= k
->   persist MemoryStorage{..} (Load o c g k) = lift (checkErrors . map g <$> readTVar mem) >>= k
->     where
->       checkErrors xs = case partitionEithers xs of
->         ([],rs)   -> Right $ reverse $ rs
->         ((e:_),_) -> Left  $ IOError $ pack e
->   persist MemoryStorage{..} (Reset k)      = lift (writeTVar mem [] >> return Nothing) >>= k 
 >
 > type Getter a = ByteString -> Either String a
 
@@ -72,6 +63,9 @@ Usual boilerplate to turn `Store` in Functor and create Free monad from construc
 > 
 > reset :: (Member Store r) => Eff r (Maybe StoreError)
 > reset  = send $ inj $ Reset id
+
+Run `Store` actions which are part of some `Union` of actions. The actual storage operations are delegated
+to given `Storage` instance.
 
 > runStore :: (SetMember Lift (Lift STM) (Store :> r), Storage s) => s -> Eff (Store :> r) w -> Eff r w
 > runStore s = freeMap return (\ u -> handleRelay u (runStore s) (runStore s . persist s))
