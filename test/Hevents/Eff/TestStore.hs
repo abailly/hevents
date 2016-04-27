@@ -8,9 +8,6 @@ import           Hevents.Eff.Store
 import           System.Clock
 import           Test.QuickCheck
 
-instance Arbitrary EventId where
-  arbitrary = EventId . BS.pack <$> vectorOf 16 arbitrary
-
 instance Arbitrary SHA1 where
   arbitrary = SHA1 . BS.pack <$> vectorOf 20 arbitrary
 
@@ -31,5 +28,5 @@ instance Serialize SomeString where
 
 instance (Arbitrary a, Serialize a) => Arbitrary (StoredEvent a) where
   arbitrary = StoredEvent <$>
-    arbitrary <*> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
+    arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 

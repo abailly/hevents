@@ -1,7 +1,6 @@
 module Hevents.Eff.StoreSpec where
 
 import           Data.Serialize
-import           Debug.Trace
 import           Hevents.Eff.TestStore
 import           Test.Hspec
 import           Test.QuickCheck
