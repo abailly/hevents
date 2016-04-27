@@ -12,14 +12,14 @@ cabal-version:       >=1.10
 
 Library
   Default-Language:   Haskell2010
-  build-depends:    aeson, async, base, base64-bytestring, bytestring, clock, containers, extensible-effects, mtl, stm, text, time
+  build-depends:    aeson, async, base, base64-bytestring, bytestring, clock, containers, extensible-effects, mtl, stm, text, time, cereal
   hs-source-dirs:     src
   exposed-modules:  Hevents, Hevents.Eff
   other-modules:    Hevents.Model, Hevents.Store, Hevents.State, Hevents.Service
                   , Hevents.Eff.Model, Hevents.Eff.State
   default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
-                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances
+                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances, GADTs
   ghc-options:     -Wall -Werror -fno-warn-orphans -threaded -rtsopts -auto-all -caf-all
 
 Test-Suite tests
@@ -27,7 +27,7 @@ Test-Suite tests
    hs-source-dirs:    test
    default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
-                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances
+                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances, GADTs
 
    type:              exitcode-stdio-1.0
    main-is:           test.hs

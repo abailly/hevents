@@ -24,7 +24,7 @@ execution: `Either` and `Error` or an `Event`.
 
 Initializes a shared `Model` from given value.
 
->   Init         :: (Model m) =>                        (TVar m                     -> a) -> State m a
+>   Init         :: (Model m) =>                      (TVar m                     -> a) -> State m a
 >   deriving (Typeable)
 
 Boilerplate code to:
