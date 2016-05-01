@@ -6,7 +6,6 @@ storage engine.
 > import Data.ByteString as BS
 > import Data.Serialize
 > import           System.Clock
-> import Data.Aeson as A
 > 
 > 
 > newtype EventVersion = EventVersion { unVersion :: Int } deriving (Show, Eq)

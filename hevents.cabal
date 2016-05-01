@@ -16,7 +16,7 @@ Library
   hs-source-dirs:     src
   exposed-modules:  Hevents, Hevents.Eff
   other-modules:    Hevents.Model, Hevents.Store, Hevents.State, Hevents.Service
-                  , Hevents.Eff.Model, Hevents.Eff.State
+                  , Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.Store, Hevents.Eff.Store.MemoryStorage, Hevents.Eff.Store.Events
   default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
                     , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances, GADTs
@@ -32,7 +32,7 @@ Test-Suite tests
    type:              exitcode-stdio-1.0
    main-is:           test.hs
    ghc-options:       -threaded -Wall -Werror -fno-warn-orphans -rtsopts
-   build-depends: HUnit, QuickCheck, aeson, async >= 2.1.0, base, bytestring, bytestring-conversion, containers
+   build-depends: HUnit, QuickCheck, aeson, async >= 2.1.0, base, bytestring, bytestring-conversion, cereal, clock, containers
                 , data-default, directory, either, exceptions, extensible-effects, filepath, free, hevents, hspec, hspec-wai
                 , http-client, http-types, lens, mtl, servant, servant-client, servant-server, stm
                 , test-framework, test-framework-hunit, test-framework-quickcheck2, text, time, wai

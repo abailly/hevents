@@ -4,11 +4,11 @@ import           Control.Concurrent.STM
 import           Control.Eff.Lift
 import           Data.Either
 import           Data.Serialize
-import           Hevents.Eff.Store.MemoryStorage
-import           Hevents.Eff.TestStore
+import           Hevents.Eff
+import           Hevents.Eff.TestStore   hiding (makeMemoryStore)
 import           Test.Hspec
 import           Test.QuickCheck
-import           Test.QuickCheck.Monadic         as Q
+import           Test.QuickCheck.Monadic as Q
 
 prop_roundtripSerialization :: StoredEvent SomeString -> Property
 prop_roundtripSerialization e = let bs  = runPut $ put e

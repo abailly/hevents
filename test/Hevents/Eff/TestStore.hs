@@ -1,10 +1,14 @@
-module Hevents.Eff.TestStore(module Hevents.Eff.Store, SomeString(..)) where
+module Hevents.Eff.TestStore(SomeString(..),
+                             makeMemoryStore,FallibleStorage,readMemoryStore) where
 
-import           Data.ByteString    as BS
+import           Control.Concurrent.STM
+import           Control.Eff.Lift
+import qualified Data.ByteString        as BS
+import           Data.Either
 import           Data.Serialize
-import           Data.Text          as T
+import qualified Data.Text              as T
 import           Data.Text.Encoding
-import           Hevents.Eff.Store
+import           Hevents.Eff            hiding (makeMemoryStore, mem)
 import           System.Clock
 import           Test.QuickCheck
 
@@ -17,7 +21,7 @@ instance Arbitrary TimeSpec where
 instance Arbitrary EventVersion where
   arbitrary = EventVersion <$> arbitrary
 
-newtype SomeString = S { unString :: Text } deriving (Eq, Show)
+newtype SomeString = S { unString :: T.Text } deriving (Eq, Show)
 
 instance Arbitrary SomeString where
   arbitrary = S . T.pack <$> resize 50 arbitrary
@@ -30,3 +34,30 @@ instance (Arbitrary a, Serialize a) => Arbitrary (StoredEvent a) where
   arbitrary = StoredEvent <$>
     arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
+
+-- | An in-memory storage that fails when serialized input's first byte is odd
+newtype FallibleStorage = FallibleStorage { mem :: TVar [ BS.ByteString ] }
+
+instance Storage FallibleStorage where
+  persist FallibleStorage{..} (Store x k)    = lift (handleStore x) >>= k
+    where
+      handleStore v = do
+        let bs   =  runPut $ put v
+            csum = (sum $ BS.unpack $ bs) `mod` 127
+        if csum `mod` 2 == 0
+          then modifyTVar' mem (bs:) >> return (Right v)
+          else return (Left $ IOError $ T.pack $ "failed to serialize " ++ show bs)
+
+  persist FallibleStorage{..} (Load Offset{..} Count{..} g k) = lift (checkErrors . map g <$> readTVar mem) >>= k
+    where
+      checkErrors xs = case partitionEithers xs of
+        ([],rs)   -> Right $ reverse $ take (fromIntegral count) $ drop (fromIntegral offset) $ rs
+        ((e:_),_) -> Left  $ IOError $ T.pack e
+  persist FallibleStorage{..} (Reset k)      = lift (writeTVar mem [] >> return (Right ())) >>= k
+
+
+makeMemoryStore :: STM FallibleStorage
+makeMemoryStore = FallibleStorage <$> newTVar []
+
+readMemoryStore :: FallibleStorage -> STM [ BS.ByteString ]
+readMemoryStore = readTVar . mem

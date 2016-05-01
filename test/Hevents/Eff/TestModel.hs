@@ -1,5 +1,6 @@
 module Hevents.Eff.TestModel  where
 
+import           Data.Serialize
 import           Data.Typeable
 import           Hevents.Eff
 import           Test.QuickCheck
@@ -8,7 +9,7 @@ newtype TestModel = TestModel { val :: Int } deriving Typeable
 
 instance Model TestModel  where
   data Command TestModel = Inc Int | Dec Int deriving (Show)
-  data Event TestModel   = Added Int deriving (Show)
+  data Event TestModel   = Added Int deriving (Show, Eq)
   data Error TestModel   = OutOfBounds
 
   init = TestModel 0
@@ -27,3 +28,7 @@ instance Arbitrary (Command TestModel) where
   arbitrary = oneof [ Inc <$> choose (1,10)
                     , Dec <$> choose (1,10)
                     ]
+
+instance Serialize (Event TestModel) where
+  put (Added i) = put i
+  get           = Added <$> get
