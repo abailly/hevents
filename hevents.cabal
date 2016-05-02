@@ -12,11 +12,14 @@ cabal-version:       >=1.10
 
 Library
   Default-Language:   Haskell2010
-  build-depends:    aeson, async, base, base64-bytestring, bytestring, clock, containers, extensible-effects, mtl, stm, text, time, cereal
+  build-depends:    aeson, async, base, base64-bytestring, bytestring, clock, comonad, containers, extensible-effects, mtl
+                  , servant, servant-server
+                  , stm, text, time, cereal, wai, wai-extra, warp
   hs-source-dirs:     src
   exposed-modules:  Hevents, Hevents.Eff
   other-modules:    Hevents.Model, Hevents.Store, Hevents.State, Hevents.Service
                   , Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.Store, Hevents.Eff.Store.MemoryStorage, Hevents.Eff.Store.Events
+                  , Hevents.Eff.WebServer
   default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
                     , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances, GADTs
