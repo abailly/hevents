@@ -21,10 +21,9 @@ prop_combineStateAndStorage commands = Q.monadicIO $ do
     asDBError OutOfBounds = IOError "out of bounds"
     acts :: Eff (State TestModel :> Store :> r) (TVar TestModel)
     acts = do
-      m <- S.makeState
-      mapM_ (either (return . Left . asDBError) store <=< applyCommand m) commands
-      return m
-  m <- Q.run $ atomically $ (runLift . runStore storage . runState) acts >>= readTVar
+      mapM_ (either (return . Left . asDBError) store <=< applyCommand) commands
+      getState
+  m <- Q.run $ atomically $ newTVar >>= \ m -> (runLift . runStore storage . runState m) acts
   stored :: [ Event TestModel ] <- Q.run $ atomically $ (rights . map (runGet get)) <$> readMemoryStore storage
 
   Q.run $ print stored

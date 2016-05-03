@@ -4,6 +4,7 @@
 > import qualified Servant as S
 > import Network.Wai.Handler.Warp as W
 > import Network.Wai
+> import qualified Control.Monad.Trans as T
 > import Control.Eff
 > import Control.Eff.Lift
 > import Data.Typeable
@@ -28,10 +29,12 @@ Build a server for given API signature `s` to be run over given `Port`.
 
 Interprets the `Serve` command by running the given server. 
 
-> runWebServer :: (SetMember Lift (Lift IO) r, Typeable s, S.HasServer s) => Eff (WebServer s :> r) w -> Eff r w
+TODO: the implementation of the server should be the Eff itself??
+
+> runWebServer :: (T.MonadIO m, Typeable m, SetMember Lift (Lift m) r, Typeable s, S.HasServer s) => Eff (WebServer s :> r) w -> Eff r w
 > runWebServer = freeMap return (\ u -> handleRelay u runWebServer interpret)
 >   where
 >     interpret (Serve port proxy api k) = lift start >>= runWebServer . k
 >       where start = let app = S.serve proxy api
->                     in async (W.run port app) >> return app
+>                     in T.liftIO $ async (W.run port app) >> return app
 
