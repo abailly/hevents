@@ -2,10 +2,10 @@ module Hevents.Eff.TestModel  where
 
 import           Data.Serialize
 import           Data.Typeable
-import           Hevents.Eff
+import           Hevents.Eff     hiding (get)
 import           Test.QuickCheck
 
-newtype TestModel = TestModel { val :: Int } deriving Typeable
+newtype TestModel = TestModel { val :: Int } deriving (Eq, Show, Typeable)
 
 instance Model TestModel  where
   data Command TestModel = Inc Int | Dec Int deriving (Show)

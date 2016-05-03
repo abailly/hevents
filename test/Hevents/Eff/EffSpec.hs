@@ -7,8 +7,9 @@ import           Control.Eff.Lift        as E
 import           Control.Monad           ((<=<))
 import           Data.Either
 import           Data.Serialize
-import           Hevents.Eff             as S
-import           Hevents.Eff.TestModel
+import           Debug.Trace
+import           Hevents.Eff             as S hiding (get)
+import           Hevents.Eff.TestModel   as M
 import           Hevents.Eff.TestStore   as T
 import           Test.Hspec
 import           Test.QuickCheck         as Q
@@ -19,15 +20,18 @@ prop_combineStateAndStorage commands = Q.monadicIO $ do
   storage <- initialiseStorage
   let
     asDBError OutOfBounds = IOError "out of bounds"
-    acts :: Eff (State TestModel :> Store :> r) (TVar TestModel)
+    acts :: Eff (Store :> State TestModel :> r) TestModel
     acts = do
-      mapM_ (either (return . Left . asDBError) store <=< applyCommand) commands
-      getState
-  m <- Q.run $ atomically $ newTVar >>= \ m -> (runLift . runStore storage . runState m) acts
+      r <- mapM (either (return . Left . asDBError) store <=< applyCommand) commands
+      trace (show r) $ getState
+  m <- Q.run $ atomically $ newTVar S.init >>= \ m -> (runLift  . runState m . runStore storage) acts
   stored :: [ Event TestModel ] <- Q.run $ atomically $ (rights . map (runGet get)) <$> readMemoryStore storage
 
-  Q.run $ print stored
-  assert $ val m >= 0 && val m <= 100
+  let storedVal = foldl apply S.init $ reverse stored
+
+  Q.run $ putStrLn $ "stored "++ show stored++ ", model=" ++ show m ++ ", storedVal="++ show storedVal++ ", commands="++ show commands
+
+  assert $ m == storedVal
 
   where
     initialiseStorage = Q.run $ atomically $ T.makeMemoryStore

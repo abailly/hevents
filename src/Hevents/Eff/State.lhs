@@ -11,7 +11,6 @@ TODO: extract the low-level State update part to be able to have different way t
 > import           Control.Eff
 > import           Control.Eff.Lift
 > import           Data.Typeable
-> import qualified Hevents.Eff.Model as M
 > import           Hevents.Eff.Model hiding (init)
 > import           Prelude hiding (init)
 
@@ -59,8 +58,8 @@ There is some boilerplate here as we could potentially factorize the `lift ... >
 a function. But this does not typecheck... This might have to do with the scope limitation of some type
 variable in the `Eff` ?
 
->     interpret (ApplyCommand c k) = lift (actAndApply m c) >>= (runState m) . k
->     interpret (GetState k)       = lift (readTVar m)      >>= (runState m) . k
+>     interpret (ApplyCommand c k) = lift (actAndApply m c) >>= runState m . k
+>     interpret (GetState k)       = lift (readTVar m)      >>= runState m . k
 
 Low-level function to actually run the command against the model.
 

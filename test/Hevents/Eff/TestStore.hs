@@ -8,7 +8,7 @@ import           Data.Either
 import           Data.Serialize
 import qualified Data.Text              as T
 import           Data.Text.Encoding
-import           Hevents.Eff            hiding (makeMemoryStore, mem)
+import           Hevents.Eff            hiding (get, makeMemoryStore, mem)
 import           System.Clock
 import           Test.QuickCheck
 
@@ -35,7 +35,7 @@ instance (Arbitrary a, Serialize a) => Arbitrary (StoredEvent a) where
     arbitrary <*> arbitrary <*> arbitrary <*> arbitrary
 
 
--- | An in-memory storage that fails when serialized input's first byte is odd
+-- | An in-memory storage that fails when serialized input's "checksum" is odd
 newtype FallibleStorage = FallibleStorage { mem :: TVar [ BS.ByteString ] }
 
 instance Storage FallibleStorage where
@@ -53,6 +53,7 @@ instance Storage FallibleStorage where
       checkErrors xs = case partitionEithers xs of
         ([],rs)   -> Right $ reverse $ take (fromIntegral count) $ drop (fromIntegral offset) $ rs
         ((e:_),_) -> Left  $ IOError $ T.pack e
+
   persist FallibleStorage{..} (Reset k)      = lift (writeTVar mem [] >> return (Right ())) >>= k
 
 

@@ -10,56 +10,50 @@ import           Data.Void
 import           Hevents.Eff              as S
 import           Hevents.Eff.TestModel
 import           Hevents.Eff.TestModel2
+import           Prelude                  hiding (init)
 import           Test.Hspec
 import           Test.QuickCheck          as Q
 import           Test.QuickCheck.Monadic  as Q
 
 prop_modelNeverGoesOutOfBounds :: [Command TestModel] -> Property
 prop_modelNeverGoesOutOfBounds commands = monadicIO $ do
-  let i :: Eff (State TestModel :> r) (TVar TestModel)
+  let i :: Eff (State TestModel :> r) TestModel
       i = do
-        m <- S.makeState
-        mapM_ (applyCommand m) commands
-        return m
+        mapM_ applyCommand commands
+        getState
 
-  m  <- Q.run $ atomically $ runLift (runState i) >>= readTVar
+  v <- Q.run $ newTVarIO init
+  m  <- Q.run $ atomically $ runLift (runState v i)
   assert $ val m >= 0 && val m <= 100
 
 
 prop_stateSerializesConcurrentWrites :: [[Command TestModel]] -> Property
 prop_stateSerializesConcurrentWrites commands = monadicIO $ do
-  let i :: Eff (State TestModel :> r) (TVar TestModel)
-      i = S.makeState
-
-      c :: TVar TestModel -> [ Command TestModel ] -> Eff (State TestModel :> r) [ Event TestModel ]
-      c m coms = rights <$> mapM (applyCommand m) coms
+  let
+      c :: [ Command TestModel ] -> Eff (State TestModel :> r) [ Event TestModel ]
+      c coms = rights <$> mapM applyCommand coms
 
       added (Added k) = k
 
-  m   <- Q.run $ atomically $ runLift (runState i)
-  evs <- concat <$> Q.run (mapConcurrently (atomically . runLift . runState . c m) commands)
+  m <- Q.run $ newTVarIO init
+  evs <- concat <$> Q.run (mapConcurrently (atomically . runLift . runState m . c) commands)
   v   <- Q.run $ readTVarIO m
 
   assert $ val v == sum (map added evs)
 
 prop_allowMixingTwoModels :: [ Command TestModel ] -> [ Command TestModel2 ] -> Property
 prop_allowMixingTwoModels commands1 commands2 = monadicIO $ do
-  let alternateCommands m1 m2 []       []       = return (m1,m2)
-      alternateCommands m1 m2 (c1:c1s) []       = applyCommand m1 c1 >> alternateCommands m1 m2 c1s []
-      alternateCommands m1 m2 []       (c2:c2s) = applyCommand m2 c2 >> alternateCommands m1 m2 [] c2s
-      alternateCommands m1 m2 (c1:c1s) (c2:c2s) = applyCommand m2 c2 >> applyCommand m1 c1 >> alternateCommands m1 m2 c1s c2s
+  let alternateCommands []       []       = (,) <$> getState <*> getState
+      alternateCommands (c1:c1s) []       = applyCommand c1 >> alternateCommands c1s []
+      alternateCommands []       (c2:c2s) = applyCommand c2 >> alternateCommands [] c2s
+      alternateCommands (c1:c1s) (c2:c2s) = applyCommand c2 >> applyCommand c1 >> alternateCommands c1s c2s
 
-      initAndCommands :: Eff (State TestModel :> State TestModel2 :> Lift STM :> Void) (TVar TestModel, TVar TestModel2)
+      initAndCommands :: Eff (State TestModel :> State TestModel2 :> Lift STM :> Void) (TestModel, TestModel2)
       initAndCommands = do
-        m1 <- S.makeState
-        m2 <- S.makeState
-        alternateCommands m1 m2 commands1 commands2
+        alternateCommands commands1 commands2
 
-  (m'1,m'2) <- Q.run $ atomically $ runLift $ runState $ runState $ initAndCommands
-  (v1,v2)   <- Q.run $ do
-      x <- readTVarIO m'1
-      y <- readTVarIO m'2
-      return (x,y)
+  (m1,m2) <- Q.run $ (,) <$> newTVarIO init <*> newTVarIO init
+  (v1,v2) <- Q.run $ atomically $ runLift $ runState m2 $ runState m1 $ initAndCommands
 
   assert $ val v1 >= 0 && val v1 <= 100 && val2 v2 >= 1.0 && val2 v2 <= 1000000.0
 

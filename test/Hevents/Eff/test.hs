@@ -3,6 +3,7 @@
 
 import           Control.Comonad
 import           Data.Functor.Identity
+import           Network.Wai
 
 data Store s a = Store s (s -> a)
 
@@ -20,10 +21,11 @@ newtype Pretext s a =
 experiment :: Functor f => (s -> f s) -> Pretext s a -> f a
 experiment f (Pretext k) = k f
 
--- /show
-main = putStrLn "It typechecks, so it must be correct!"
 
 instance Comonad (Pretext s) where
   extract     (Pretext k) = runIdentity $ k Identity
   duplicate p@(Pretext k) = Pretext $ \ f -> (p $>) `fmap` k f
+
+-- /show
+main = putStrLn "It typechecks, so it must be correct!"
 

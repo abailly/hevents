@@ -4,7 +4,7 @@ import           Control.Concurrent.STM
 import           Control.Eff.Lift
 import           Data.Either
 import           Data.Serialize
-import           Hevents.Eff
+import           Hevents.Eff             hiding (get)
 import           Hevents.Eff.TestStore   hiding (makeMemoryStore)
 import           Test.Hspec
 import           Test.QuickCheck
