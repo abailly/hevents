@@ -24,7 +24,7 @@ prop_combineStateAndStorage commands = Q.monadicIO $ do
     acts = do
       r <- mapM (either (return . Left . asDBError) store <=< applyCommand) commands
       trace (show r) $ getState
-  m <- Q.run $ atomically $ newTVar S.init >>= \ m -> (runLift  . runState m . runStore storage) acts
+  m <- Q.run $ atomically $ newTVar (S.init :: TestModel) >>= \ m -> (runLift  . runState m . runStore storage) acts
   stored :: [ Event TestModel ] <- Q.run $ atomically $ (rights . map (runGet get)) <$> readMemoryStore storage
 
   let storedVal = foldl apply S.init $ reverse stored

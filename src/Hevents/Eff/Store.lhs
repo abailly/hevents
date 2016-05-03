@@ -11,7 +11,6 @@ interpretation of the "requests" for this effect are left to low-level instances
 > import Data.Text(Text)
 > import Control.Eff
 > import Control.Eff.Lift
-> import Control.Concurrent.STM
 > import Hevents.Eff.Store.Events
 > import Data.Int
 > 
@@ -26,8 +25,8 @@ to *atomically* `persist` a serializable value. The persistence action is run as
 with the intent that if it fails, one can `retry` or `abort` the transaction hence discard any other transactional
 effects that might require storage to be successful.
 
-> class Storage s where
->   persist :: (SetMember Lift (Lift STM) (Store :> r)) =>  s -> Store (Eff (Store :> r) a) -> Eff (Store :> r) a
+> class Monad m => Storage m s where
+>   persist :: (SetMember Lift (Lift m) (Store :> r)) =>  s -> Store (Eff (Store :> r) a) -> Eff (Store :> r) a
 >
 > type Reader a = ByteString -> Either String a
 >
@@ -69,6 +68,6 @@ Usual boilerplate to turn `Store` in Functor and create Free monad from construc
 Run `Store` actions which are part of some `Union` of actions. The actual storage operations are delegated
 to given `Storage` instance.
 
-> runStore :: (SetMember Lift (Lift STM) (Store :> r), Storage s) => s -> Eff (Store :> r) w -> Eff r w
+> runStore :: (Monad m, SetMember Lift (Lift m) (Store :> r), Storage m s) => s -> Eff (Store :> r) w -> Eff r w
 > runStore s = freeMap return (\ u -> handleRelay u (runStore s) (runStore s . persist s))
 

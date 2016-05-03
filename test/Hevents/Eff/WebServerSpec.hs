@@ -49,6 +49,7 @@ spec = describe "Web Server Effect" $ do
 
     m <- newTVarIO W.init
     st <- liftIO $ atomically $ W.makeMemoryStore
+
     s <- liftIO $ W.runWebServer 8082 testAPI (appHandler st m)
 
     n <- liftIO $ runEitherT (client testAPI (BaseUrl Http "localhost" 8082) 12) `finally` cancel s

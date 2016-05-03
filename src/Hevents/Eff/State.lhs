@@ -5,14 +5,20 @@ TODO: extract the low-level State update part to be able to have different way t
 
 > {-# LANGUAGE DeriveFunctor #-}
 > {-# LANGUAGE GADTs         #-}
-> module Hevents.Eff.State(State, applyCommand, getState, runState) where
+> module Hevents.Eff.State(State(..), Registrar(..), applyCommand, getState, runState) where
 > 
-> import           Control.Concurrent.STM
 > import           Control.Eff
 > import           Control.Eff.Lift
 > import           Data.Typeable
 > import           Hevents.Eff.Model hiding (init)
 > import           Prelude hiding (init)
+
+
+A `Registrar` is responsible for the machinery needed to apply commands, maintain and retrieve state
+
+> class (Monad m, Model s) => Registrar m s g where
+>   update :: (SetMember Lift (Lift m) (State s :> r)) =>  g -> State s (Eff (State s :> r) a) -> Eff (State s :> r) a
+>   
 
 A `State` is parameterized by the type of `Model` it manages.
 
@@ -50,25 +56,6 @@ to the `STM` monad, which is expressed by the constraint `SetMember Lift (Lift S
 this was lifted to `IO` but this is not necessary and running in the `STM` has the effect that the result of
 `runState` computation lives in STM, meaning operations are composed as a single memory transaction.
 
-> runState :: (Model m, Typeable m, SetMember Lift (Lift STM) r) => TVar m -> Eff (State m :> r) w -> Eff r w
-> runState m = freeMap return (\ u -> handleRelay u (runState m) interpret)
->   where
+> runState :: (Model m, Typeable m, Monad mo, SetMember Lift (Lift mo) (State m :> r), Registrar mo m reg) => reg -> Eff (State m :> r) w -> Eff r w
+> runState reg = freeMap return (\ u -> handleRelay u (runState reg) (runState reg . update reg))
 
-There is some boilerplate here as we could potentially factorize the `lift ... >>= runState . k` part into
-a function. But this does not typecheck... This might have to do with the scope limitation of some type
-variable in the `Eff` ?
-
->     interpret (ApplyCommand c k) = lift (actAndApply m c) >>= runState m . k
->     interpret (GetState k)       = lift (readTVar m)      >>= runState m . k
-
-Low-level function to actually run the command against the model.
-
-> actAndApply :: (Model m) => TVar m -> Command m -> STM (Either (Error m) (Event m))
-> actAndApply v command = do
->   s <- readTVar v
->   let modifyState (KO er) = return $ Left er
->       modifyState (OK ev) =  do
->         let newView = s `apply` ev
->         writeTVar v newView
->         return $ Right ev
->   modifyState (s `act` command)

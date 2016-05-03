@@ -10,7 +10,7 @@ import           Hevents.Eff.Store
 
 newtype MemoryStorage = MemoryStorage { mem :: TVar [ ByteString ] }
 
-instance Storage MemoryStorage where
+instance Storage STM MemoryStorage where
   persist MemoryStorage{..} (Store x k)    = lift (modifyTVar' mem (runPut (put x):) >> return (Right x)) >>= k
   persist MemoryStorage{..} (Load Offset{..} Count{..} g k) = lift (checkErrors . map g <$> readTVar mem) >>= k
     where

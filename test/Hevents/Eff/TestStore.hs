@@ -38,7 +38,7 @@ instance (Arbitrary a, Serialize a) => Arbitrary (StoredEvent a) where
 -- | An in-memory storage that fails when serialized input's "checksum" is odd
 newtype FallibleStorage = FallibleStorage { mem :: TVar [ BS.ByteString ] }
 
-instance Storage FallibleStorage where
+instance Storage STM FallibleStorage where
   persist FallibleStorage{..} (Store x k)    = lift (handleStore x) >>= k
     where
       handleStore v = do

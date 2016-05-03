@@ -22,7 +22,7 @@ prop_modelNeverGoesOutOfBounds commands = monadicIO $ do
         mapM_ applyCommand commands
         getState
 
-  v <- Q.run $ newTVarIO init
+  v <- Q.run $ newTVarIO (init :: TestModel)
   m  <- Q.run $ atomically $ runLift (runState v i)
   assert $ val m >= 0 && val m <= 100
 
@@ -52,7 +52,7 @@ prop_allowMixingTwoModels commands1 commands2 = monadicIO $ do
       initAndCommands = do
         alternateCommands commands1 commands2
 
-  (m1,m2) <- Q.run $ (,) <$> newTVarIO init <*> newTVarIO init
+  (m1,m2) <- Q.run $ (,) <$> newTVarIO (init :: TestModel) <*> newTVarIO (init :: TestModel2)
   (v1,v2) <- Q.run $ atomically $ runLift $ runState m2 $ runState m1 $ initAndCommands
 
   assert $ val v1 >= 0 && val v1 <= 100 && val2 v2 >= 1.0 && val2 v2 <= 1000000.0
