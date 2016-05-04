@@ -2,7 +2,7 @@ module Hevents.Eff.TestModel  where
 
 import           Data.Serialize
 import           Data.Typeable
-import           Hevents.Eff     hiding (get)
+import           Hevents.Eff
 import           Test.QuickCheck
 
 newtype TestModel = TestModel { val :: Int } deriving (Eq, Show, Typeable)

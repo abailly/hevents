@@ -8,7 +8,7 @@ import           Data.Either
 import           Data.Serialize
 import qualified Data.Text              as T
 import           Data.Text.Encoding
-import           Hevents.Eff            hiding (get, makeMemoryStore, mem)
+import           Hevents.Eff            hiding (makeMemoryStore, mem)
 import           System.Clock
 import           Test.QuickCheck
 

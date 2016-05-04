@@ -1,38 +1,32 @@
-> {-# LANGUAGE DeriveFunctor #-}
 > module Hevents.Eff.WebServer where
 >
-> import qualified Servant as S
+> import Servant
+> import Control.Category
+> import Prelude hiding ((.))
+> import Control.Monad.Trans.Either
 > import Network.Wai.Handler.Warp as W
 > import Control.Eff
-> import Data.Typeable
 > import Control.Concurrent.Async
-> import Debug.Trace
+> import Servant.Server.Internal.Enter
+
+Extend a *natural transformation* from some effectful computation to IO into the `EitherT` monad expected by servant.
+
+> effToHandle :: (Eff r :~> IO) -> (Eff r :~> EitherT ServantErr IO)
+> effToHandle = (liftNat .)
 >
 
-A Type for endpoints inputing values of type `a` and returning values of type `b`.
+Some type aliases to simplify things...
 
-> data Endpoint a b
->
+> type EffServer api r = ServerT api (Eff r)
+> type EffToServant r = Eff r :~> EitherT ServantErr IO
 
-A `WebServer` is parameterized by the type `r` of effects it contains.
+Serve given API with witness `p` implemented by handler `hdl` and  starting server on given `port`.
+The actual server is built by applying the given transformation `eff` to build an actual `Server api` handler.
 
-> data WebServer r where
->
-
-Build a server for given API signature `s` to be run over given `Port`.
-
->   Get :: Endpoint a b -> (a -> Eff r b) -> WebServer r
->   deriving (Typeable)
-> 
-
-
-> get :: Endpoint a b -> (a -> Eff r b) -> WebServer r
-> get = Get
-> 
-
-Interprets the `Serve` command by running the given server. 
-
-> runWebServer :: (S.HasServer api) => Port -> (Proxy api) -> S.Server api -> IO (Async ())
-> runWebServer port p server = async $ trace "started server" $ W.run port (S.serve p server) 
+> runWebServer :: (HasServer api, Enter (EffServer api r) (EffToServant r) (Server api))
+>              => Port -> Proxy api -> (Eff r :~> IO) -> ServerT api (Eff r) -> IO (Async ())
+> runWebServer port p eff hdl = async $  W.run port $ serve p hdler
+>   where
+>     hdler = enter (effToHandle eff) hdl
 
 

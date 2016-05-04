@@ -26,7 +26,7 @@ import           Servant.Client
 import           Test.Hspec
 
 
-type TestApi = "test" :> Capture "userid" Int :> Get '[JSON] Int
+type TestApi = "inc" :> Capture "increment" Int :> Get '[JSON] Int
 
 testAPI :: Proxy TestApi
 testAPI = Proxy
@@ -36,34 +36,24 @@ effect :: (Typeable m, Storage STM s, Registrar STM m reg)
               -> E.Eff (State m E.:> Store E.:> Lift STM E.:> Void) :~> IO
 effect s m = Nat $ atomically . runSync .  W.runStore s . W.runState m
 
-effToHandle :: (E.Eff r :~>  IO) -> (E.Eff r :~> EitherT e IO)
-effToHandle = (liftNat .)
+asDBError :: Error TestModel -> StoreError
+asDBError OutOfBounds = IOError "out of bounds"
+
+handler :: Int -> E.Eff (State TestModel E.:> Store E.:> r) Int
+handler n = applyCommand (Inc n) >>= either (return . Left . asDBError) store >> getState >>= return . val
 
 spec :: Spec
 spec = describe "Web Server Effect" $ do
 
   it "should serve HTTP requests given some effectful function" $ do
-    let
+    model <- newTVarIO (W.init :: TestModel)
+    storage <- liftIO $ atomically $ W.makeMemoryStore
 
-      asDBError OutOfBounds = IOError "out of bounds"
+    s <- liftIO $ W.runWebServer 8082 testAPI (effect storage model) handler
 
-      hdl :: Int -> E.Eff (State TestModel E.:> Store E.:> r) Int
-      hdl n = applyCommand (Inc n) >>= either (return . Left . asDBError) store >> getState >>= return . val
+    n <- liftIO $ runEitherT (client testAPI (BaseUrl Http "localhost" 8082) 42) `finally` cancel s
 
-      appServer :: ServerT TestApi (E.Eff (State TestModel E.:> Store E.:> Lift STM E.:> Void))
-      appServer = hdl
-
-      appHandler :: MemoryStorage -> TVar TestModel -> Server TestApi
-      appHandler s m = enter (effToHandle (effect s m)) appServer
-
-    m <- newTVarIO W.init
-    st <- liftIO $ atomically $ W.makeMemoryStore
-
-    s <- liftIO $ W.runWebServer 8082 testAPI (appHandler st m)
-
-    n <- liftIO $ runEitherT (client testAPI (BaseUrl Http "localhost" 8082) 12) `finally` cancel s
-
-    either (error . show) (`shouldBe` 12) n
+    either (error . show) (`shouldBe` 42) n
 
 
 
