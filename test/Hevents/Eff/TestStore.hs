@@ -44,9 +44,9 @@ instance Storage STM FallibleStorage where
       handleStore v = do
         let bs   =  runPut $ put v
             csum = (sum $ BS.unpack $ bs) `mod` 127
-        if csum `mod` 2 == 0
+        if csum `mod` 17 /= 0
           then modifyTVar' mem (bs:) >> return (Right v)
-          else return (Left $ IOError $ T.pack $ "failed to serialize " ++ show bs)
+          else retry
 
   persist FallibleStorage{..} (Load Offset{..} Count{..} g k) = lift (checkErrors . map g <$> readTVar mem) >>= k
     where

@@ -3,8 +3,7 @@ module Hevents.Eff.EffSpec(spec) where
 
 import           Control.Concurrent.STM
 import           Control.Eff             as E
-import           Control.Eff.Lift        as E
-import           Control.Monad           ((<=<))
+import           Control.Monad           (when, (<=<))
 import           Data.Either
 import           Data.Serialize
 import           Debug.Trace
@@ -22,14 +21,13 @@ prop_combineStateAndStorage commands = Q.monadicIO $ do
     asDBError OutOfBounds = IOError "out of bounds"
     acts :: Eff (Store :> State TestModel :> r) TestModel
     acts = do
-      r <- mapM (either (return . Left . asDBError) store <=< applyCommand) commands
-      trace (show r) $ getState
-  m <- Q.run $ atomically $ newTVar (S.init :: TestModel) >>= \ m -> (runLift  . runState m . runStore storage) acts
-  stored :: [ Event TestModel ] <- Q.run $ atomically $ (rights . map (runGet get)) <$> readMemoryStore storage
+      _ <- sequence $ map (either (return . Left . asDBError) store <=< applyCommand) commands
+      getState
+  m <- Q.run $ atomically $ newTVar (S.init :: TestModel) >>= \ m -> (runSync . runState m . runStore storage) acts
+                                                                  `catchSTM` (\ (SyncException r) -> readTVar m)
+  stored :: [ Event TestModel ] <- reverse <$> (Q.run $ atomically $ (rights . map (runGet get)) <$> readMemoryStore storage)
 
-  let storedVal = foldl apply S.init $ reverse stored
-
-  Q.run $ putStrLn $ "stored "++ show stored++ ", model=" ++ show m ++ ", storedVal="++ show storedVal++ ", commands="++ show commands
+  let storedVal = foldl apply S.init $ stored
 
   assert $ m == storedVal
 

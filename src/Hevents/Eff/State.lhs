@@ -50,11 +50,7 @@ Boilerplate code to:
 > getState :: (Model m, Typeable m, Member (State m) r) => Eff r m
 > getState = send $ inj $ GetState id
 
-Effective computation on a `State m` which boils down to interpreting each `State` constructor's effect.
-Because we are relying on `STM` computations we need to ensure the underlying `r` functor allows *lifting*
-to the `STM` monad, which is expressed by the constraint `SetMember Lift (Lift STM) r`. In an earlier version
-this was lifted to `IO` but this is not necessary and running in the `STM` has the effect that the result of
-`runState` computation lives in STM, meaning operations are composed as a single memory transaction.
+Effective computation on a `State m` which is delegated to the given `Registrar`.
 
 > runState :: (Model m, Typeable m, Monad mo, SetMember Lift (Lift mo) (State m :> r), Registrar mo m reg) => reg -> Eff (State m :> r) w -> Eff r w
 > runState reg = freeMap return (\ u -> handleRelay u (runState reg) (runState reg . update reg))
