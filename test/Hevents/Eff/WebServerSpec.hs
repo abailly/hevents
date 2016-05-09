@@ -15,6 +15,7 @@ import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception
 import           Control.Monad.Trans        (liftIO)
 import           Control.Monad.Trans.Either
+import           Data.Functor               (void)
 import           Data.Proxy
 import           Data.Typeable
 import           Data.Void
@@ -40,23 +41,29 @@ asDBError :: Error TestModel -> StoreError
 asDBError OutOfBounds = IOError "out of bounds"
 
 handler :: Int -> E.Eff (State TestModel E.:> Store E.:> r) Int
-handler n = applyCommand (Inc n) >>= either (return . Left . asDBError) store >> getState >>= return . val
+handler n = do
+  r <- applyCommand (Inc n)
+  void $ either (return . Left . asDBError) store r
+  val <$> getState
 
 spec :: Spec
 spec = describe "Web Server Effect" $ do
 
   it "should serve HTTP requests given some effectful function" $ do
-    model <- newTVarIO (W.init :: TestModel)
-    storage <- liftIO $ atomically $ W.makeMemoryStore
+    (model, storage) <- prepareContext
 
-    s <- liftIO $ W.runWebServer 8082 testAPI (effect storage model) handler
+    s <- W.runWebServer 8082 testAPI (effect storage model) handler
 
-    n <- liftIO $ runEitherT (client testAPI (BaseUrl Http "localhost" 8082) 42) `finally` cancel s
+    n <- runClient 42 `finally` cancel s
 
     either (error . show) (`shouldBe` 42) n
 
+      where
+        prepareContext = (,) <$>
+          newTVarIO (W.init :: TestModel) <*>
+          atomically W.makeMemoryStore
 
-
+        runClient = runEitherT . client testAPI (BaseUrl Http "localhost" 8082)
 
 
 
