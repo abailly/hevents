@@ -35,3 +35,14 @@ type CounterApi = "counter" :> (Get '[JSON] Int
 counterApi :: Proxy CounterApi
 counterApi = Proxy
 
+-- * Minimal implementation
+
+counterServer :: Server CounterApi
+counterServer = getCounter
+  :<|> increment
+  :<|> decrement
+  where
+    getCounter = undefined
+    increment  = const undefined
+    decrement  = const undefined
+
