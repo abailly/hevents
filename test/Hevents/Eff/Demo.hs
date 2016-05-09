@@ -21,7 +21,7 @@ import           Data.Typeable
 import           Data.Void
 import           Hevents.Eff                as W
 import           Network.Wai.Handler.Warp   as W
-import           Prelude                    hiding ((.))
+import           Prelude                    hiding (init, (.))
 import           Servant
 import           Servant.Client
 import           Test.Hspec
@@ -69,3 +69,23 @@ instance Model Counter where
   init = 0
 
 newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
+
+-- * Test Counter properties
+
+instance Arbitrary (Command Counter) where
+  arbitrary = oneof [ Increment <$> number
+                    , Decrement <$> number
+                    ]
+    where
+      number = choose (0,10)
+
+prop_shouldActAndApplyCommandsRespectingBounds :: Command Counter -> Bool
+prop_shouldActAndApplyCommandsRespectingBounds c@(Increment i) = let OK result = init `act` c
+                                                                 in init `apply` result == Counter i
+prop_shouldActAndApplyCommandsRespectingBounds c@(Decrement i) = let counter = Counter 10
+                                                                     OK result = counter `act` c
+                                                                 in counter `apply` result == Counter (10 - i)
+
+counterSpec :: Spec
+counterSpec = describe "Counter model" $ do
+  it "should apply result of commands given it respects bounds" $ property $ prop_shouldActAndApplyCommandsRespectingBounds
