@@ -43,7 +43,7 @@ counterServer = getCounter
   :<|> increment
   :<|> decrement
   where
-    getCounter = undefined
+    getCounter = return 0
     increment  = const undefined
     decrement  = const undefined
 
