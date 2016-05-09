@@ -110,6 +110,10 @@ counterSpec = describe "Counter model" $ do
 
 -- * Events Persistence
 
+instance Serialize (Event Counter) where
+  put (Added i) = put i
+  get           = Added <$> get
+
 prop_persistEventsOnCounterModel :: [ Command Counter ] -> Property
 prop_persistEventsOnCounterModel commands = Q.monadicIO $ do
   storage <- initialiseStorage
