@@ -57,3 +57,9 @@ apiSpec = describe "Counter Server" $ do
     n `shouldBe` 0
       where
         getCounter :<|> _  :<|> _ = client counterApi (BaseUrl Http "localhost" 8082)
+
+-- * The counter model
+
+instance Model Counter where
+  data Command Counter = Increment Positive | Decrement Positive deriving (Eq,Show)
+
