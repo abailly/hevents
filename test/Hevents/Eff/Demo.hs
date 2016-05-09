@@ -15,7 +15,10 @@ import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception          (finally)
 import           Control.Monad              (forM, (<=<))
 import qualified Control.Monad.State        as ST
+import qualified Control.Monad.Trans        as TR
 import           Control.Monad.Trans.Either
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Builder    as BS
 import           Data.Either                (rights)
 import           Data.Functor               (void)
 import           Data.Proxy
@@ -33,9 +36,9 @@ import           Test.QuickCheck.Monadic    as Q
 
 -- * Define REST Interface
 
-type CounterApi = "counter" :> (Get '[JSON] Int
-                                :<|> "increment" :> Capture "inc" Int :> Get '[JSON] Int
-                                :<|> "decrement" :> Capture "dec" Int :> Get '[JSON] Int)
+type CounterApi = "counter" :> Get '[JSON] Int
+                  :<|> "counter" :> "increment" :> Capture "inc" Int :> Get '[JSON] Int
+                  :<|> "counter" :> "decrement" :> Capture "dec" Int :> Get '[JSON] Int
 
 counterApi :: Proxy CounterApi
 counterApi = Proxy
@@ -114,11 +117,12 @@ instance Serialize (Event Counter) where
   put (Added i) = put i
   get           = Added <$> get
 
+asDBError OutOfBounds = IOError "out of bounds"
+
 prop_persistEventsOnCounterModel :: [ Command Counter ] -> Property
 prop_persistEventsOnCounterModel commands = Q.monadicIO $ do
   storage <- initialiseStorage
   let
-    asDBError OutOfBounds = IOError "out of bounds"
     acts :: E.Eff (Store E.:> State Counter E.:> r) Counter
     acts = do
       _ <- sequence $ map (either (return . Left . asDBError) store <=< applyCommand) commands
@@ -142,20 +146,61 @@ storeSpec = describe "Events Storage" $ do
 
 -- * Complete Counter Server
 
+data CounterApiAction = GetCounter
+                      | IncCounter Int
+                      | DecCounter Int
+                      deriving (Show)
+
+instance Arbitrary CounterApiAction where
+  arbitrary = oneof [ return GetCounter
+                    , IncCounter <$> choose (0,10)
+                    , DecCounter <$> choose (0,10)
+                    ]
+
+effect :: (Typeable m, Storage STM s, Registrar STM m reg)
+              => s -> reg
+              -> E.Eff (State m E.:> Store E.:> Lift STM E.:> Void) :~> EitherT ServantErr IO
+effect s m = Nat $ TR.lift . atomically . runSync .  W.runStore s . W.runState m
+
+handler :: ServerT CounterApi (E.Eff (State Counter E.:> Store E.:> r))
+handler = getCounter :<|> increment :<|> decrement
+  where
+    getCounter :: E.Eff (State Counter E.:> Store E.:> r) Int
+    getCounter = counter <$> getState
+
+    asServantErr e = err400 {errBody = BS.toLazyByteString $ BS.stringUtf8 (show e) }
+
+    increment n = do
+      r <- applyCommand (Increment n)
+      void $ either (return . Left . asDBError) store r
+      counter <$> getState
+
+    decrement n = do
+      r <- applyCommand (Decrement n)
+      void $ either (return . Left . asDBError) store r
+      counter <$> getState
+
 prop_counterServerImplementsCounterApi :: [ CounterApiAction ] -> Property
 prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
   results <- Q.run $ do
     (model, storage) <- prepareContext
-    server <- W.runWebServer 8082 counterApi (effect storage model) handler
-    runClient actions `finally` cancel server
+    server <- W.runWebServerErr 8082 counterApi (effect storage model) handler
+    mapM runClient actions `finally` cancel server
 
   assert $ all withinBounds (rights results)
 
     where
+      withinBounds n = n >= 0 && n <= 100
+
       prepareContext = (,) <$>
         newTVarIO (W.init :: Counter) <*>
         atomically W.makeMemoryStore
-      runClient = runEitherT . client counterApi (BaseUrl Http "localhost" 8082)
+
+      getCounter :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
+
+      runClient GetCounter     = runEitherT $ getCounter
+      runClient (IncCounter n) = runEitherT $ incCounter n
+      runClient (DecCounter n) = runEitherT $ decCounter n
 
 serverSpec :: Spec
 serverSpec = describe "Counter Server" $ do
