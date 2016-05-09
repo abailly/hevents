@@ -7,20 +7,15 @@
 module Hevents.Eff.Demo where
 
 import           Control.Category
-import           Control.Concurrent
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import qualified Control.Eff                as E
 import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception          (finally)
-import           Control.Monad              (forM, (<=<))
+import           Control.Monad.Except
 import qualified Control.Monad.State        as ST
-import qualified Control.Monad.Trans        as TR
 import           Control.Monad.Trans.Either
-import qualified Data.ByteString            as BS
-import qualified Data.ByteString.Builder    as BS
 import           Data.Either                (rights)
-import           Data.Functor               (void)
 import           Data.Proxy
 import           Data.Serialize             (Serialize, get, put, runGet)
 import           Data.Typeable
@@ -158,17 +153,13 @@ instance Arbitrary CounterApiAction where
                     ]
 
 effect :: (Typeable m, Storage STM s, Registrar STM m reg)
-              => s -> reg
-              -> E.Eff (State m E.:> Store E.:> Lift STM E.:> Void) :~> EitherT ServantErr IO
-effect s m = Nat $ TR.lift . atomically . runSync .  W.runStore s . W.runState m
+         => s -> reg
+         -> E.Eff (State m E.:> Store E.:> Lift STM E.:> Void) :~> IO
+effect s m = Nat $ atomically . runSync . W.runStore s .  W.runState m
 
-handler :: ServerT CounterApi (E.Eff (State Counter E.:> Store E.:> r))
 handler = getCounter :<|> increment :<|> decrement
   where
-    getCounter :: E.Eff (State Counter E.:> Store E.:> r) Int
     getCounter = counter <$> getState
-
-    asServantErr e = err400 {errBody = BS.toLazyByteString $ BS.stringUtf8 (show e) }
 
     increment n = do
       r <- applyCommand (Increment n)
@@ -180,11 +171,15 @@ handler = getCounter :<|> increment :<|> decrement
       void $ either (return . Left . asDBError) store r
       counter <$> getState
 
+prepareContext = (,) <$>
+  newTVarIO (W.init :: Counter) <*>
+  atomically W.makeMemoryStore
+
 prop_counterServerImplementsCounterApi :: [ CounterApiAction ] -> Property
 prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
   results <- Q.run $ do
     (model, storage) <- prepareContext
-    server <- W.runWebServerErr 8082 counterApi (effect storage model) handler
+    server <- W.runWebServer 8082 counterApi (effect storage model) handler
     mapM runClient actions `finally` cancel server
 
   assert $ all withinBounds (rights results)
@@ -192,9 +187,6 @@ prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
     where
       withinBounds n = n >= 0 && n <= 100
 
-      prepareContext = (,) <$>
-        newTVarIO (W.init :: Counter) <*>
-        atomically W.makeMemoryStore
 
       getCounter :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
 
@@ -205,3 +197,10 @@ prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
 serverSpec :: Spec
 serverSpec = describe "Counter Server" $ do
   it "implements counter API with bounds" $ property $ prop_counterServerImplementsCounterApi
+
+-- * Main app
+
+main :: IO ()
+main = do
+  (model, storage) <- prepareContext
+  W.runWebServer 8082 counterApi (effect storage model) handler >>= wait
