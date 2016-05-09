@@ -139,3 +139,24 @@ prop_persistEventsOnCounterModel commands = Q.monadicIO $ do
 storeSpec :: Spec
 storeSpec = describe "Events Storage" $ do
     it "should persist events applied to model" $ property $ prop_persistEventsOnCounterModel
+
+-- * Complete Counter Server
+
+prop_counterServerImplementsCounterApi :: [ CounterApiAction ] -> Property
+prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
+  results <- Q.run $ do
+    (model, storage) <- prepareContext
+    server <- W.runWebServer 8082 counterApi (effect storage model) handler
+    runClient actions `finally` cancel server
+
+  assert $ all withinBounds (rights results)
+
+    where
+      prepareContext = (,) <$>
+        newTVarIO (W.init :: Counter) <*>
+        atomically W.makeMemoryStore
+      runClient = runEitherT . client counterApi (BaseUrl Http "localhost" 8082)
+
+serverSpec :: Spec
+serverSpec = describe "Counter Server" $ do
+  it "implements counter API with bounds" $ property $ prop_counterServerImplementsCounterApi
