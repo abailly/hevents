@@ -1,0 +1,66 @@
+* Out of the Tar Pit
+
+  - Famous article by Peter Marks and Ben Moseley from 2006
+      (http://shaffner.us/cs/papers/tarpit.pdf) 
+  - OO is not the right tool to fight back complexity within systems
+  - Promotes an approach based on
+  - *Functional Programming*
+  - and *Relational Algebra*
+
+* Out of the Tar Pit, really?
+
+ - Business domains are rarely relational (or functional)
+ - We want to speak the language of the business
+ - Ubiquitous language
+ - DDD 
+ - Services, Entities, Commands, Events..
+
+* Really getting out of the Tar Pit
+
+ - *Divide quod impera*
+
+* Really getting out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Bounded contexts
+     -> Small self-contained domain-centric services
+
+* Really getting out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Bounded contexts
+     -> Small self-contained domain-centric services
+
+ - Hexagonal architecture
+     -> Side-effects free business domain model 
+
+* Really getting out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Bounded contexts
+     -> Small self-contained domain-centric services
+
+ - Hexagonal architecture
+     -> Side-effects free business domain model 
+
+ - Event Sourcing
+     -> Stream of events = State of the system
+
+* A Simple Event Sourced Service from Scratch
+
+ - A counter service:
+   - Starts at 0
+   - Can =increment= counter with a positive value
+   - Can =decrement= counter with a positive value
+   - Can query state of the counter
+
+* What's demoed
+
+ - Statically typed REST API w/ Servant (http://haskell-servant.github.io/)
+ - Purely functional model event sourced model
+ - Simple file-based storage
+ - Use the REPL, Luke!
+ - Property Based Testing
