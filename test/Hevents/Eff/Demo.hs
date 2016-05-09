@@ -32,4 +32,6 @@ type CounterApi = "counter" :> (Get '[JSON] Int
                                 :<|> "increment" :> Capture "inc" Int :> Get '[JSON] Int
                                 :<|> "decrement" :> Capture "dec" Int :> Get '[JSON] Int)
 
+counterApi :: Proxy CounterApi
+counterApi = Proxy
 
