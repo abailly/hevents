@@ -29,4 +29,13 @@ The actual server is built by applying the given transformation `eff` to build a
 >   where
 >     hdler = enter (effToHandle eff) hdl
 
+Run web server on port `port` serving API with withness `p` applying transformation `eff` which already takes into
+account Servant errors.
+
+> runWebServerErr :: (HasServer api, Enter (EffServer api r) (EffToServant r) (Server api))
+>              => Port -> Proxy api -> (Eff r :~> EitherT ServantErr IO) -> ServerT api (Eff r) -> IO (Async ())
+> runWebServerErr port p eff hdl = async $  W.run port $ serve p hdler
+>   where
+>     hdler = enter eff hdl
+
 

@@ -13,7 +13,6 @@ import           Control.Concurrent.STM
 import qualified Control.Eff                as E
 import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception
-import           Control.Monad.Trans        (liftIO)
 import           Control.Monad.Trans.Either
 import           Data.Functor               (void)
 import           Data.Proxy
