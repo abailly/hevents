@@ -9,6 +9,8 @@ DDD terminology, a `Model` is made of:
 
 > module Hevents.Eff.Model where
 >
+> import Control.Monad.State
+> 
 > class Model a where
 
 The type of events that can affect this `Model`. Technically this is a *type family* which is equivalent to
@@ -46,3 +48,15 @@ The result of applying a `Command` to a `Model`. This is basically `Either` in d
 
 > data Result a = KO (Error a)
 >               | OK (Event a)
+
+Helper function to run a command and immediately apply the result on model, returning updated state and result.
+This builds a `State` instance that can be used.
+
+> updateModel :: (Model a) => Command a -> State a (Result a)
+> updateModel command = state actAndApply
+>   where
+>     actAndApply s = case commandResult of
+>       OK e -> (commandResult, s `apply` e)
+>       KO _ -> (commandResult, s)
+>       where
+>         commandResult = s `act` command

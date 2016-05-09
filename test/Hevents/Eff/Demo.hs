@@ -13,6 +13,8 @@ import           Control.Concurrent.STM
 import qualified Control.Eff                as E
 import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception
+import           Control.Monad              (forM)
+import qualified Control.Monad.State        as ST
 import           Control.Monad.Trans.Either
 import           Data.Functor               (void)
 import           Data.Proxy
@@ -90,6 +92,11 @@ prop_shouldActAndApplyCommandsRespectingBounds c@(Decrement i) = let counter = C
                                                                      OK result = counter `act` c
                                                                  in counter `apply` result == Counter (10 - i)
 
+prop_shouldNotApplyCommandsOverBounds :: [Command Counter] -> Bool
+prop_shouldNotApplyCommandsOverBounds commands = let finalCounter = counter $ ST.execState (mapM_ updateModel commands) init
+                                                 in  finalCounter >= 0 && finalCounter <= 100
+
 counterSpec :: Spec
 counterSpec = describe "Counter model" $ do
   it "should apply result of commands given it respects bounds" $ property $ prop_shouldActAndApplyCommandsRespectingBounds
+  it "should not allow applying commands out of bounds"         $ property $ prop_shouldNotApplyCommandsOverBounds
