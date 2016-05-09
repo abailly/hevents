@@ -59,12 +59,13 @@ apiSpec = describe "Counter Server" $ do
         getCounter :<|> _  :<|> _ = client counterApi (BaseUrl Http "localhost" 8082)
 
 -- * The counter model
+-- A bounded counter
 
 instance Model Counter where
-  data Command Counter = Increment Positive | Decrement Positive deriving (Eq,Show)
+  data Command Counter = Increment Int | Decrement Int deriving (Eq,Show)
   data Event Counter = Added Int deriving (Eq,Show)
   data Error Counter = OutOfBounds deriving (Eq, Show)
 
   init = 0
 
-
+newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
