@@ -29,37 +29,6 @@ import           Test.Hspec
 import           Test.QuickCheck            as Q
 import           Test.QuickCheck.Monadic    as Q
 
--- * Define REST Interface
-
-type CounterApi = "counter" :> Get '[JSON] Int
-                  :<|> "counter" :> "increment" :> Capture "inc" Int :> Get '[JSON] Int
-                  :<|> "counter" :> "decrement" :> Capture "dec" Int :> Get '[JSON] Int
-
-counterApi :: Proxy CounterApi
-counterApi = Proxy
-
--- * Minimal implementation
-
-counterServer :: Server CounterApi
-counterServer = getCounter
-  :<|> increment
-  :<|> decrement
-  where
-    getCounter = return 0
-    increment  = const undefined
-    decrement  = const undefined
-
--- * A Test
-apiSpec :: Spec
-apiSpec = describe "Counter Server" $ do
-  it "should return 0 as initial state of counter" $ do
-    s <- async $ W.run 8082 $ serve counterApi counterServer
-    Right n <- (runEitherT $ getCounter) `finally` cancel s
-
-    n `shouldBe` 0
-      where
-        getCounter :<|> _  :<|> _ = client counterApi (BaseUrl Http "localhost" 8082)
-
 -- * The counter model
 -- A bounded counter
 
@@ -140,6 +109,15 @@ storeSpec = describe "Events Storage" $ do
     it "should persist events applied to model" $ property $ prop_persistEventsOnCounterModel
 
 -- * Complete Counter Server
+
+-- ** Define REST Interface
+
+type CounterApi = "counter" :> Get '[JSON] Int
+                  :<|> "counter" :> "increment" :> Capture "inc" Int :> Get '[JSON] Int
+                  :<|> "counter" :> "decrement" :> Capture "dec" Int :> Get '[JSON] Int
+
+counterApi :: Proxy CounterApi
+counterApi = Proxy
 
 data CounterApiAction = GetCounter
                       | IncCounter Int
