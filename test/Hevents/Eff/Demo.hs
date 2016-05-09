@@ -12,13 +12,14 @@ import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import qualified Control.Eff                as E
 import           Control.Eff.Lift           as E hiding (lift)
-import           Control.Exception
-import           Control.Monad              (forM)
+import           Control.Exception          (finally)
+import           Control.Monad              (forM, (<=<))
 import qualified Control.Monad.State        as ST
 import           Control.Monad.Trans.Either
+import           Data.Either                (rights)
 import           Data.Functor               (void)
 import           Data.Proxy
-import           Data.Serialize             (Serialize, get, put)
+import           Data.Serialize             (Serialize, get, put, runGet)
 import           Data.Typeable
 import           Data.Void
 import           Hevents.Eff                as W
@@ -27,7 +28,8 @@ import           Prelude                    hiding (init, (.))
 import           Servant
 import           Servant.Client
 import           Test.Hspec
-import           Test.QuickCheck
+import           Test.QuickCheck            as Q
+import           Test.QuickCheck.Monadic    as Q
 
 -- * Define REST Interface
 
@@ -104,3 +106,32 @@ counterSpec :: Spec
 counterSpec = describe "Counter model" $ do
   it "should apply result of commands given it respects bounds" $ property $ prop_shouldActAndApplyCommandsRespectingBounds
   it "should not allow applying commands out of bounds"         $ property $ prop_shouldNotApplyCommandsOverBounds
+
+
+-- * Events Persistence
+
+prop_persistEventsOnCounterModel :: [ Command Counter ] -> Property
+prop_persistEventsOnCounterModel commands = Q.monadicIO $ do
+  storage <- initialiseStorage
+  let
+    asDBError OutOfBounds = IOError "out of bounds"
+    acts :: E.Eff (Store E.:> State Counter E.:> r) Counter
+    acts = do
+      _ <- sequence $ map (either (return . Left . asDBError) store <=< applyCommand) commands
+      getState
+  m <- Q.run $ atomically $ newTVar (W.init :: Counter) >>= \ m -> (runSync . runState m . runStore storage) acts
+                                                                  `catchSTM` (\ (SyncException _) -> readTVar m)
+  stored :: [ Event Counter ] <- reverse <$> (Q.run $ atomically $ (rights . map (runGet get)) <$> readMemoryStore storage)
+
+  let storedVal = foldl apply W.init $ stored
+
+  assert $ m == storedVal
+
+  where
+    readMemoryStore = readTVar . mem
+    initialiseStorage = Q.run $ atomically $ W.makeMemoryStore
+
+
+storeSpec :: Spec
+storeSpec = describe "Events Storage" $ do
+    it "should persist events applied to model" $ property $ prop_persistEventsOnCounterModel
