@@ -68,6 +68,10 @@ instance Model Counter where
 
   init = 0
 
+  Counter _ `act`   Increment i = OK $ Added i
+  Counter _ `act`   Decrement i = OK $ Added (-i)
+  Counter n `apply` Added a     = Counter (n + a)
+
 newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
 
 -- * Test Counter properties
