@@ -62,4 +62,5 @@ apiSpec = describe "Counter Server" $ do
 
 instance Model Counter where
   data Command Counter = Increment Positive | Decrement Positive deriving (Eq,Show)
+  data Event Counter = Added Int deriving (Eq,Show)
 
