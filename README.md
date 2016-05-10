@@ -11,6 +11,7 @@ Each such service should be easily constructed and include the following:
     * Local file,
     * Remote server,
 * Call to other services as a client,
+* Error handling in a consistent way,
 * Web interface to the service,
 * Logging,
 * Metrics and monitoring,
