@@ -91,6 +91,17 @@ newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
 -- We are writing tests for higher-level services representing user interactions with
 -- our basic model
 
+data CounterAction = GetCounter
+                      | IncCounter Int
+                      | DecCounter Int
+                      deriving (Show)
+
+instance Arbitrary CounterAction where
+  arbitrary = frequency [ (3, return GetCounter)
+                        , (2, IncCounter <$> choose (0,10))
+                        , (1, DecCounter <$> choose (0,10))
+                        ]
+
 prop_servicesRespectCounterBounds :: [ CounterAction ] -> Property
 prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
   results <- Q.run $ do
