@@ -30,6 +30,7 @@ import           Network.Wai.Handler.Warp   as W
 import           Prelude                    hiding (init, (.))
 import           Servant
 import           Servant.Client
+import           System.Environment
 import           Test.Hspec
 import           Test.QuickCheck            as Q
 import           Test.QuickCheck.Monadic    as Q
@@ -173,10 +174,19 @@ prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
   assert $ all withinBounds (rights results)
 
     where
-      handler = getCounter :<|> increment :<|> decrement
 
       counterState :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
 
       runClient GetCounter     = runEitherT $ counterState
       runClient (IncCounter n) = runEitherT $ incCounter n
       runClient (DecCounter n) = runEitherT $ decCounter n
+
+handler = getCounter :<|> increment :<|> decrement
+
+-- * Main server
+
+main :: IO ()
+main = do
+  [port] <- getArgs
+  (model, storage) <- prepareContext
+  W.runWebServerErr (read port) counterApi (Nat $ EitherT . effect storage model) handler >>= wait
