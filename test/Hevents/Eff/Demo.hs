@@ -85,3 +85,29 @@ instance Model Counter where
   Counter n `apply` Added a     = Counter (n + a)
 
 newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
+
+
+-- * Testing counter-based services
+-- We are writing tests for higher-level services representing user interactions with
+-- our basic model
+
+prop_servicesRespectCounterBounds :: [ CounterAction ] -> Property
+prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
+  results <- Q.run $ do
+    (model, storage) <- prepareContext
+    mapM (effect storage model . interpret) actions
+
+  assert $ all withinBounds (rights results)
+
+    where
+      withinBounds n = n >= 0 && n <= 100
+
+effect :: (Typeable m, Storage STM s, Registrar STM m reg)
+         => s -> reg
+         -> E.Eff (State m E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a -> IO (Either ServantErr a)
+effect s m = atomically . runSync . runExc . W.runStore s .  W.runState m
+
+prepareContext = (,) <$>
+  newTVarIO (W.init :: Counter) <*>
+  atomically W.makeMemoryStore
+
