@@ -113,6 +113,8 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
     where
       withinBounds n = n >= 0 && n <= 100
 
+      _interpret GetCounter = counter <$> getState
+
 effect :: (Typeable m, Storage STM s, Registrar STM m reg)
          => s -> reg
          -> E.Eff (State m E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a -> IO (Either ServantErr a)
