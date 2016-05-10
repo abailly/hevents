@@ -11,8 +11,7 @@
 
  - Business domains are rarely relational (or functional)
  - We want to speak the language of the business
- - Ubiquitous language
- - DDD 
+ - Hence the rise of *Domain Driven Design* and associated concepts
  - Services, Entities, Commands, Events..
 
 * Really getting out of the Tar Pit
@@ -23,22 +22,38 @@
 
  - *Divide quod impera*
 
+ - Domain-focused language
+     -> aka. Ubiquitous language, use the language of the business domain
+
+* Really getting out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Domain-focused language
+     -> aka. Ubiquitous language, use the language of the business domain
+
  - Bounded contexts
      -> Small self-contained domain-centric services
 
 * Really getting out of the Tar Pit
 
  - *Divide quod impera*
+
+ - Domain-focused language
+     -> aka. Ubiquitous language, use the language of the business domain
 
  - Bounded contexts
      -> Small self-contained domain-centric services
 
  - Hexagonal architecture
      -> Side-effects free business domain model 
-
+   
 * Really getting out of the Tar Pit
 
  - *Divide quod impera*
+
+ - Domain-focused language
+     -> aka. Ubiquitous language, use the language of the business domain
 
  - Bounded contexts
      -> Small self-contained domain-centric services
@@ -47,7 +62,7 @@
      -> Side-effects free business domain model 
 
  - Event Sourcing
-     -> Stream of events = State of the system
+     -> Immutable stream of events as the state of the system
 
 * A Simple Event Sourced Service from Scratch
 
@@ -60,31 +75,42 @@
 
 * What's demoed
 
- - Statically typed REST API w/ Servant (http://haskell-servant.github.io/)
+ - TDD w/ Property Based Testing
  - Purely functional model event sourced model
- - Simple file-based storage
+ - Services defined from composable effectful building blocks
+ - Statically typed REST API w/ Servant (http://haskell-servant.github.io/)
  - Use the REPL, Luke!
- - Property Based Testing
 
 * Takeaways
 
- - Pure business model and easily defined *ubiquitous language*
+ - It's easy to define languages and pure models and to play with them
 
 * Takeaways
 
- - Pure business model and easily defined *ubiquitous language*
+ - It's easy to define languages and pure models and to play with them
  - Strong typing helps enforcing guarantees at all levels
 
 * Takeaways
 
- - Pure business model and easily defined *ubiquitous language*
+ - It's easy to define languages and pure models and to play with them
+ - It's easy to test drive model with properties
  - Strong typing helps enforcing guarantees at all levels
- - Property based testing makes it easy to test drive model
 
 * Takeaways
 
- - Pure business model and easily defined *ubiquitous language*
+ - It's easy to define languages and pure models and to play with them
+ - It's easy to test drive model with properties
  - Strong typing helps enforcing guarantees at all levels
- - Property based testing makes it easy to test drive model
- - Sophisticated type features makes it possible to define and 
- compose DSL fragments
+ - Sophisticated type features makes it possible to define and
+   compose DSL fragments
+
+* Some Interesting References
+
+ - http://okmij.org/ftp/Haskell/extensible/exteff.pdf: Extensible effects theory and 
+   practice in Haskell
+ - https://github.com/atnos-org/eff-cats: Same in Scala
+ - http://www.cse.chalmers.se/~rjmh/Papers/QuickCheckST.ps: Testing monadic code w/ QuickCheck
+ - http://abailly.github.io/posts/cm-arch-design.html: (Shameless plug) Blog post about the architecture
+   implemented at Capital Match
+ - https://github.com/abailly/hevents: (Shameless plug bis) Work-in-progress Haskell library to
+   simplify developing event sourced systems
