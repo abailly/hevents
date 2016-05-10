@@ -10,11 +10,14 @@ import           Control.Category
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import qualified Control.Eff                as E
+import           Control.Eff.Exception
 import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception          (finally)
 import           Control.Monad.Except
 import qualified Control.Monad.State        as ST
 import           Control.Monad.Trans.Either
+import qualified Data.ByteString            as BS
+import qualified Data.ByteString.Builder    as BS
 import           Data.Either                (rights)
 import           Data.Proxy
 import           Data.Serialize             (Serialize, get, put, runGet)
@@ -132,22 +135,24 @@ instance Arbitrary CounterApiAction where
 
 effect :: (Typeable m, Storage STM s, Registrar STM m reg)
          => s -> reg
-         -> E.Eff (State m E.:> Store E.:> Lift STM E.:> Void) :~> IO
-effect s m = Nat $ atomically . runSync . W.runStore s .  W.runState m
+         -> E.Eff (State m E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a -> IO (Either ServantErr a)
+effect s m = atomically . runSync . runExc . W.runStore s .  W.runState m
 
 handler = getCounter :<|> increment :<|> decrement
   where
     getCounter = counter <$> getState
 
-    increment n = do
-      r <- applyCommand (Increment n)
-      void $ either (return . Left . asDBError) store r
-      counter <$> getState
+    fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
+    fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
 
-    decrement n = do
-      r <- applyCommand (Decrement n)
-      void $ either (return . Left . asDBError) store r
-      counter <$> getState
+    handleResult :: Either (Error Counter) (Event Counter) -> E.Eff (State Counter E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) Int
+    handleResult = either
+        (throwExc . fromModelError)
+        (either (throwExc . fromDBError) (const $ counter <$> getState) <=< store)
+
+    increment n = applyCommand (Increment n) >>= handleResult
+
+    decrement n = applyCommand (Decrement n) >>= handleResult
 
 prepareContext = (,) <$>
   newTVarIO (W.init :: Counter) <*>
@@ -157,7 +162,7 @@ prop_counterServerImplementsCounterApi :: [ CounterApiAction ] -> Property
 prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
   results <- Q.run $ do
     (model, storage) <- prepareContext
-    server <- W.runWebServer 8082 counterApi (effect storage model) handler
+    server <- W.runWebServerErr 8082 counterApi (Nat $ EitherT . effect storage model) handler
     mapM runClient actions `finally` cancel server
 
   assert $ all withinBounds (rights results)
@@ -181,4 +186,4 @@ serverSpec = describe "Counter Server" $ do
 main :: IO ()
 main = do
   (model, storage) <- prepareContext
-  W.runWebServer 8082 counterApi (effect storage model) handler >>= wait
+  W.runWebServerErr 8082 counterApi (Nat $ EitherT . effect storage model) handler >>= wait
