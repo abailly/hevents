@@ -54,3 +54,22 @@ prop_shouldActAndApplyCommandsRespectingBounds c@(Increment i) = let OK result =
 prop_shouldActAndApplyCommandsRespectingBounds c@(Decrement i) = let counter = Counter 10
                                                                      OK result = counter `act` c
                                                                  in counter `apply` result == Counter (10 - i)
+
+-- * The Counter model
+
+instance Model Counter where
+  data Command Counter = Increment Int | Decrement Int deriving (Eq,Show)
+  data Event Counter = Added Int deriving (Eq,Show)
+  data Error Counter = OutOfBounds deriving (Eq, Show)
+
+  init = 0
+
+  Counter n `act`   Increment i = if (n + i) > 100
+                                  then KO OutOfBounds
+                                  else OK $ Added i
+  Counter n `act`   Decrement i = if (n - i) < 0
+                                  then KO OutOfBounds
+                                  else OK $ Added (-i)
+  Counter n `apply` Added a     = Counter (n + a)
+
+newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
