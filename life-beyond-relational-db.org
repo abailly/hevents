@@ -52,10 +52,11 @@
 * A Simple Event Sourced Service from Scratch
 
  - A counter service:
-   - Starts at 0
+   - Initial value is 0
    - Can =increment= counter with a positive value
    - Can =decrement= counter with a positive value
    - Can query state of the counter
+   - Counter's value can not go below 0 or above 100
 
 * What's demoed
 
@@ -64,3 +65,26 @@
  - Simple file-based storage
  - Use the REPL, Luke!
  - Property Based Testing
+
+* Takeaways
+
+ - Pure business model and easily defined *ubiquitous language*
+
+* Takeaways
+
+ - Pure business model and easily defined *ubiquitous language*
+ - Strong typing helps enforcing guarantees at all levels
+
+* Takeaways
+
+ - Pure business model and easily defined *ubiquitous language*
+ - Strong typing helps enforcing guarantees at all levels
+ - Property based testing makes it easy to test drive model
+
+* Takeaways
+
+ - Pure business model and easily defined *ubiquitous language*
+ - Strong typing helps enforcing guarantees at all levels
+ - Property based testing makes it easy to test drive model
+ - Sophisticated type features makes it possible to define and 
+ compose DSL fragments
