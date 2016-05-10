@@ -106,7 +106,7 @@ prop_servicesRespectCounterBounds :: [ CounterAction ] -> Property
 prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
   results <- Q.run $ do
     (model, storage) <- prepareContext
-    mapM (effect storage model . interpret) actions
+    mapM (effect storage model . _interpret) actions
 
   assert $ all withinBounds (rights results)
 
