@@ -38,6 +38,7 @@ import           Test.QuickCheck.Monadic    as Q
 counterSpec :: Spec
 counterSpec = describe "Counter model" $ do
   it "should apply result of commands given it respects bounds" $ property $ prop_shouldActAndApplyCommandsRespectingBounds
+  it "should not allow applying commands out of bounds"         $ property $ prop_shouldNotApplyCommandsOverBounds
 
 -- * The commands that can act on the model
 instance Arbitrary (Command Counter) where
@@ -59,6 +60,12 @@ prop_shouldActAndApplyCommandsRespectingBounds c@(Increment i) = let OK result =
 prop_shouldActAndApplyCommandsRespectingBounds c@(Decrement i) = let counter = Counter 10
                                                                      OK result = counter `act` c
                                                                  in counter `apply` result == Counter (10 - i)
+
+-- * A more interesting property, involving bounds of model
+
+prop_shouldNotApplyCommandsOverBounds :: [Command Counter] -> Bool
+prop_shouldNotApplyCommandsOverBounds commands = let finalCounter = counter $ ST.execState (mapM updateModel commands) init
+                                                 in  finalCounter >= 0 && finalCounter <= 100
 
 -- * The Counter model
 
