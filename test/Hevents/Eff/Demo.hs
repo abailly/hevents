@@ -48,6 +48,11 @@ instance Arbitrary (Command Counter) where
       number = choose (0,10)
 
 -- * First property, test all commands against pristine model
+-- we can do
+--
+-- >>>> verboseCheck prop_shouldActAndApplyCommandsRespectingBounds
+--
+-- to see what's going on with generated values...
 prop_shouldActAndApplyCommandsRespectingBounds :: Command Counter -> Bool
 prop_shouldActAndApplyCommandsRespectingBounds c@(Increment i) = let OK result = init `act` c
                                                                  in init `apply` result == Counter i
