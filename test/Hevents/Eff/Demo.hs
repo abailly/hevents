@@ -171,3 +171,12 @@ prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
     mapM runClient actions `finally` cancel server
 
   assert $ all withinBounds (rights results)
+
+    where
+      handler = getCounter :<|> increment :<|> decrement
+
+      counterState :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
+
+      runClient GetCounter     = runEitherT $ counterState
+      runClient (IncCounter n) = runEitherT $ incCounter n
+      runClient (DecCounter n) = runEitherT $ decCounter n
