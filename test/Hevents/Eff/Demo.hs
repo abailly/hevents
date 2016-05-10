@@ -116,11 +116,12 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
   assert $ all withinBounds (rights results)
 
     where
-      withinBounds n = n >= 0 && n <= 100
 
       interpret GetCounter     = getCounter
       interpret (IncCounter n) = increment n
       interpret (DecCounter n) = decrement n
+
+withinBounds n = n >= 0 && n <= 100
 
 getCounter :: EventSourced Int
 getCounter = counter <$> getState
@@ -159,3 +160,14 @@ type CounterApi = "counter" :> Get '[JSON] Int
 
 counterApi :: Proxy CounterApi
 counterApi = Proxy
+
+-- * Test our REST API
+
+prop_counterServerImplementsCounterApi :: [ CounterAction ] -> Property
+prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
+  results <- Q.run $ do
+    (model, storage) <- prepareContext
+    server <- W.runWebServerErr 8082 counterApi (Nat $ EitherT . effect storage model) handler
+    mapM runClient actions `finally` cancel server
+
+  assert $ all withinBounds (rights results)
