@@ -151,3 +151,11 @@ storeEvent = either
     fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
     fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
 
+-- * REST API to access counter services
+
+type CounterApi = "counter" :> Get '[JSON] Int
+                  :<|> "counter" :> "increment" :> Capture "inc" Int :> Get '[JSON] Int
+                  :<|> "counter" :> "decrement" :> Capture "dec" Int :> Get '[JSON] Int
+
+counterApi :: Proxy CounterApi
+counterApi = Proxy
