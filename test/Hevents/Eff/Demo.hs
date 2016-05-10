@@ -128,10 +128,10 @@ data CounterApiAction = GetCounter
                       deriving (Show)
 
 instance Arbitrary CounterApiAction where
-  arbitrary = oneof [ return GetCounter
-                    , IncCounter <$> choose (0,10)
-                    , DecCounter <$> choose (0,10)
-                    ]
+  arbitrary = frequency [ (3, return GetCounter)
+                        , (2, IncCounter <$> choose (0,10))
+                        , (1, DecCounter <$> choose (0,10))
+                        ]
 
 effect :: (Typeable m, Storage STM s, Registrar STM m reg)
          => s -> reg
