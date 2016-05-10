@@ -87,6 +87,11 @@ instance Model Counter where
 newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
 
 
+instance Serialize (Event Counter) where
+  put (Added i) = put i
+  get           = Added <$> get
+
+
 -- * Testing counter-based services
 -- We are writing tests for higher-level services representing user interactions with
 -- our basic model
