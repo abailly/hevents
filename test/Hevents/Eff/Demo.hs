@@ -92,9 +92,9 @@ newtype Counter = Counter { counter :: Int } deriving (Eq, Show, Num)
 -- our basic model
 
 data CounterAction = GetCounter
-                      | IncCounter Int
-                      | DecCounter Int
-                      deriving (Show)
+                   | IncCounter Int
+                   | DecCounter Int
+                   deriving (Show)
 
 instance Arbitrary CounterAction where
   arbitrary = frequency [ (3, return GetCounter)
@@ -106,21 +106,33 @@ prop_servicesRespectCounterBounds :: [ CounterAction ] -> Property
 prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
   results <- Q.run $ do
     (model, storage) <- prepareContext
-    mapM (effect storage model . _interpret) actions
+    mapM (effect storage model . interpret) actions
 
   assert $ all withinBounds (rights results)
 
     where
       withinBounds n = n >= 0 && n <= 100
 
-      _interpret GetCounter = counter <$> getState
+      interpret GetCounter     = counter <$> getState
+      interpret (IncCounter n) = applyCommand (Increment n) >>= storeEvent
+      interpret (DecCounter n) = applyCommand (Decrement n) >>= storeEvent
 
-effect :: (Typeable m, Storage STM s, Registrar STM m reg)
+effect :: (Typeable m, Typeable e, Storage STM s, Registrar STM m reg)
          => s -> reg
-         -> E.Eff (State m E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a -> IO (Either ServantErr a)
+         -> E.Eff (State m E.:> Store E.:> Exc e E.:> Lift STM E.:> Void) a -> IO (Either e a)
 effect s m = atomically . runSync . runExc . W.runStore s .  W.runState m
 
 prepareContext = (,) <$>
   newTVarIO (W.init :: Counter) <*>
   atomically W.makeMemoryStore
 
+type EventSourced a = E.Eff (State Counter E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a
+
+storeEvent :: Either (Error Counter) (Event Counter)
+             -> EventSourced Int
+storeEvent = either
+  (throwExc . fromModelError)
+  (either (throwExc . fromDBError) (const $ counter <$> getState) <=< store)
+  where
+    fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
+    fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
