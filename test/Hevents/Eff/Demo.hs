@@ -46,7 +46,7 @@ instance Arbitrary (Command Counter) where
                     , Decrement <$> number
                     ]
     where
-      number = choose (0,10)
+      number = choose (0,20)
 
 -- * First property, test all commands against pristine model
 -- we can do
@@ -57,9 +57,9 @@ instance Arbitrary (Command Counter) where
 prop_shouldActAndApplyCommandsRespectingBounds :: Command Counter -> Bool
 prop_shouldActAndApplyCommandsRespectingBounds c@(Increment i) = let OK result = init `act` c
                                                                  in init `apply` result == Counter i
-prop_shouldActAndApplyCommandsRespectingBounds c@(Decrement i) = let counter = Counter 10
+prop_shouldActAndApplyCommandsRespectingBounds c@(Decrement i) = let counter = Counter 20
                                                                      OK result = counter `act` c
-                                                                 in counter `apply` result == Counter (10 - i)
+                                                                 in counter `apply` result == Counter (20 - i)
 
 -- * A more interesting property, involving bounds of model
 
