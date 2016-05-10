@@ -118,9 +118,18 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
     where
       withinBounds n = n >= 0 && n <= 100
 
-      interpret GetCounter     = counter <$> getState
-      interpret (IncCounter n) = applyCommand (Increment n) >>= storeEvent
-      interpret (DecCounter n) = applyCommand (Decrement n) >>= storeEvent
+      interpret GetCounter     = getCounter
+      interpret (IncCounter n) = increment n
+      interpret (DecCounter n) = decrement n
+
+getCounter :: EventSourced Int
+getCounter = counter <$> getState
+
+increment :: Int -> EventSourced Int
+increment n = applyCommand (Increment n) >>= storeEvent
+
+decrement :: Int -> EventSourced Int
+decrement n = applyCommand (Decrement n) >>= storeEvent
 
 effect :: (Typeable m, Typeable e, Storage STM s, Registrar STM m reg)
          => s -> reg
@@ -141,3 +150,4 @@ storeEvent = either
   where
     fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
     fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
+
