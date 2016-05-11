@@ -80,3 +80,23 @@ instance Arbitrary (Command Counter) where
   arbitrary = oneof [ Increment <$> choose (0,20)
                     , Decrement <$> choose (0,20)
                     ]
+
+-- * We now have a fully functional event-sourced bounded counter *Model*
+-- let's expose some services that end users could access...
+--
+-- First write tests representing services interactions
+
+data CounterAction = GetCounter
+                   | IncCounter Int
+                   | DecCounter Int
+                   deriving (Show)
+
+instance Arbitrary CounterAction where
+  -- we use frequency to represent some expected (or observed) behaviour
+  -- our users' behaviour model could be much more complex...
+  arbitrary = frequency [ (3, return GetCounter)
+                        , (2, IncCounter <$> choose (0,10))
+                        , (1, DecCounter <$> choose (0,10))
+                        ]
+
+
