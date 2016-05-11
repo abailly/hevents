@@ -166,9 +166,10 @@ storeEvent = either
 
 -- * REST API to access counter services
 
-type CounterApi = "counter" :> Get '[JSON] Int
-                  :<|> "counter" :> "increment" :> Capture "inc" Int :> Get '[JSON] Int
-                  :<|> "counter" :> "decrement" :> Capture "dec" Int :> Get '[JSON] Int
+type CounterApi = "counter" :> (Get '[JSON] Int
+                                :<|> "increment" :> Capture "inc" Int :> Get '[JSON] Int
+                                :<|> "decrement" :> Capture "dec" Int :> Get '[JSON] Int
+                                :<|> "rollover"  :> Capture "inc" Int :> Get '[JSON] Int)
 
 counterApi :: Proxy CounterApi
 counterApi = Proxy
@@ -186,13 +187,14 @@ prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
 
     where
 
-      counterState :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
+      counterState :<|> incCounter :<|> decCounter :<|> rollCounter = client counterApi (BaseUrl Http "localhost" 8082)
 
       runClient GetCounter     = runEitherT $ counterState
       runClient (IncCounter n) = runEitherT $ incCounter n
       runClient (DecCounter n) = runEitherT $ decCounter n
+      runClient (RollOver n)   = runEitherT $ rollCounter n
 
-handler = getCounter :<|> increment :<|> decrement
+handler = getCounter :<|> increment :<|> decrement :<|> rollover
 
 -- * Main server
 
