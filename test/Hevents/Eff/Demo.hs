@@ -174,3 +174,11 @@ runClient (DecCounter n) = runEitherT $ decCounter n
 counterState :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
 
 handler = getCounter :<|> increment :<|> decrement
+
+-- * Main server
+
+main :: IO ()
+main = do
+  [port] <- getArgs
+  (model, storage) <- prepareContext
+  W.runWebServerErr (read port) counterApi (Nat $ EitherT . effect storage model) handler >>= wait
