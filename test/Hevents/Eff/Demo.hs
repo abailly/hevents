@@ -171,4 +171,6 @@ runClient GetCounter     = runEitherT $ counterState
 runClient (IncCounter n) = runEitherT $ incCounter n
 runClient (DecCounter n) = runEitherT $ decCounter n
 
+counterState :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
+
 handler = getCounter :<|> increment :<|> decrement
