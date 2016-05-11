@@ -134,3 +134,12 @@ decrement :: Int -> EventSourced Int
 decrement n = applyCommand (Decrement n) >>= storeEvent
 
 type EventSourced a = E.Eff (State Counter E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a
+
+storeEvent :: Either (Error Counter) (Event Counter)
+             -> EventSourced Int
+storeEvent = either
+  (throwExc . fromModelError)
+  (either (throwExc . fromDBError) (const $ counter <$> getState) <=< store)
+  where
+    fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
+    fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
