@@ -100,11 +100,13 @@ instance Serialize (Event Counter) where
 data CounterAction = GetCounter
                    | IncCounter Int
                    | DecCounter Int
+                   | RollOver Int
                    deriving (Show)
 
 instance Arbitrary CounterAction where
   arbitrary = frequency [ (3, return GetCounter)
                         , (2, IncCounter <$> choose (0,10))
+                        , (2, RollOver <$> choose (0,100))
                         , (1, DecCounter <$> choose (0,10))
                         ]
 
@@ -120,6 +122,7 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
 
       interpret GetCounter     = getCounter
       interpret (IncCounter n) = increment n
+      interpret (RollOver n)   = rollover n
       interpret (DecCounter n) = decrement n
 
 withinBounds n = n >= 0 && n <= 100
@@ -129,6 +132,14 @@ getCounter = counter <$> getState
 
 increment :: Int -> EventSourced Int
 increment n = applyCommand (Increment n) >>= storeEvent
+
+rollover :: Int -> EventSourced Int
+rollover n = do
+  v <- counter <$> getState
+  event <- if v + n > 100
+    then applyCommand (Decrement (100 - n))
+    else applyCommand (Increment n)
+  storeEvent event
 
 decrement :: Int -> EventSourced Int
 decrement n = applyCommand (Decrement n) >>= storeEvent
