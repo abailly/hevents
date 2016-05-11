@@ -106,3 +106,8 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
     mapM (effect storage model . interpret) actions
 
   assert $ all (\c -> c >= 0 && c <= 100) (rights results)
+
+-- this is where we define the initial state of our services and model
+prepareContext = (,)           <$>
+  newTVarIO (W.init :: Counter) <*>
+  atomically W.makeMemoryStore
