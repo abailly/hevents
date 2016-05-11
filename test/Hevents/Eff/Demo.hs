@@ -53,4 +53,5 @@ instance Model Counter where
   data Error Counter = OutOfBounds deriving (Eq,Show)
 
 
-
+instance Arbitrary (Command Counter) where
+  arbitrary = Increment <$> choose (0,20)
