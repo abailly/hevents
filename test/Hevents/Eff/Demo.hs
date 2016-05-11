@@ -41,5 +41,9 @@ aCounter = describe "Counter Model" $ do
     prop_shouldApplyCommandRespectingBounds
 
 
+prop_shouldApplyCommandRespectingBounds :: Command Counter -> Bool
+prop_shouldApplyCommandRespectingBounds c@(Increment n) = let OK result = init `act` c
+                                                          in  init `apply` result == Counter n
+
 
 
