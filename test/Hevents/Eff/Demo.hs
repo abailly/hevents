@@ -39,6 +39,8 @@ aCounter :: Spec
 aCounter = describe "Counter Model" $ do
   it "should apply events from commands given they respect bounds" $ property $
     prop_shouldApplyCommandRespectingBounds
+  it "should not apply commands over bounds" $ property $
+    prop_shouldNotApplyCommandsOverBounds
 
 
 prop_shouldApplyCommandRespectingBounds :: Command Counter -> Bool
