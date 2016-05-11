@@ -66,7 +66,10 @@ instance Model Counter where
 
   init = Counter 0
 
-  Counter _ `act` Increment n = OK $ Added n
+  Counter k `act` Increment n = if k + n <= 100
+                                then OK $ Added n
+                                else KO OutOfBounds
+
   Counter k `act` Decrement n = if k - n >= 0
                                 then OK $ Added (-n)
                                 else KO OutOfBounds
