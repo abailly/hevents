@@ -1,68 +1,148 @@
-* Out of the Tar Pit
 
-  - Famous article by Peter Marks and Ben Moseley from 2006
-      (http://shaffner.us/cs/papers/tarpit.pdf) 
-  - OO is not the right tool to fight back complexity within systems
-  - Promotes an approach based on
-  - *Functional Programming*
-  - and *Relational Algebra*
 
-* Out of the Tar Pit, really?
 
- - Business domains are rarely relational (or functional)
- - We want to speak the language of the business
- - Hence the rise of *Domain Driven Design* and associated concepts
- - Services, Entities, Commands, Events..
+                Life Beyond Relational Database
+                            -
+                  Event Sourcing in Haskell
 
-* Really getting out of the Tar Pit
+                    @abailly on twitter
+
+                      arnaud@igitur.io
+
+                      http://igitur.io
+
+* Introduction
+
+ - Thanks to nCrafts team for giving me space and time to 
+   talk about things I love amongst so many people I admire
+
+* Introduction
+
+ - Thanks to nCrafts team for giving me space and time to 
+   talk about things I love amongst so many people I admire
+
+ - This draws on the past 2 years' experience developing 
+   a peer-to-peer platform at Capital Match (http://www.capital-match.com)
+   based on same techniques
+
+* Introduction
+
+ - Thanks to nCrafts team for giving me space and time to 
+   talk about things I love amongst so many people I admire
+
+ - This draws on the past 2 years' experience developing 
+   a peer-to-peer platform at Capital Match (http://www.capital-match.com)
+   based on same techniques
+
+ - I assume knowledge of DDD and Event Sourcing terminology
+
+* Introduction
+
+ - Thanks to nCrafts team for giving me space and time to 
+   talk about things I love amongst so many people I admire
+
+ - This draws on the past 2 years' experience developing 
+   a peer-to-peer platform at Capital Match (http://www.capital-match.com)
+   based on same techniques
+
+ - I assume knowledge of DDD and Event Sourcing terminology
+
+ - This is pretty much a permanent work-in-progress
+
+* Introduction
+
+ - Thanks to nCrafts team for giving me space and time to 
+   talk about things I love amongst so many people I admire
+
+ - This draws on the past 2 years' experience developing 
+   a peer-to-peer platform at Capital Match based on those
+   techniques (see http://www.capital-match.com)
+
+ - I assume knowledge of DDD and Event Sourcing terminology
+
+ - This is pretty much a permanent work-in-progress
+
+                *Feedback* welcomed
+
+* Caveats
+
+ - (lot of) *Hairy Haskell Code Inside*
+
+* Caveats
+
+ - (lot of) *Hairy Haskell Code Inside*
+
+ - Not sure how much is understandable or even meaningful...
+
+* Caveats
+
+ - (lot of) *Hairy Haskell Code Inside*
+
+ - Not sure how much is understandable or even meaningful...
+
+ - Or this might be so obvious as not being worthy of notice...
+
+* Caveats
+
+ - (lot of) *Hairy Haskell Code Inside*
+
+ - Not sure how much is understandable or even meaningful...
+
+ - Or this might be so obvious as not being worthy of notice...
+
+                 *Feedback* welcomed
+
+* Really getting Out of the Tar Pit
+
+  - *Divide quod impera*
+
+* Really getting Out of the Tar Pit
 
  - *Divide quod impera*
 
-* Really getting out of the Tar Pit
+ - Domain-focused language(s)
+     -> aka. Ubiquitous language, use the language(s) of the domain(s)
+
+* Really getting Out of the Tar Pit
 
  - *Divide quod impera*
 
- - Domain-focused language
-     -> aka. Ubiquitous language, use the language of the business domain
-
-* Really getting out of the Tar Pit
-
- - *Divide quod impera*
-
- - Domain-focused language
-     -> aka. Ubiquitous language, use the language of the business domain
+ - Domain-focused language(s)
+     -> aka. Ubiquitous language, use the language(s) of the domain(s)
 
  - Bounded contexts
      -> Small self-contained domain-centric services
 
-* Really getting out of the Tar Pit
+* Really getting Out of the Tar Pit
 
  - *Divide quod impera*
 
- - Domain-focused language
+ - Domain-focused language(s)
      -> aka. Ubiquitous language, use the language of the business domain
 
  - Bounded contexts
      -> Small self-contained domain-centric services
 
  - Hexagonal architecture
-     -> Side-effects free business domain model 
+     -> Side-effects free business domain model composed within effectful context
    
-* Really getting out of the Tar Pit
+* Really getting Out of the Tar Pit
 
  - *Divide quod impera*
 
- - Domain-focused language
+ - Domain-focused language(s)
      -> aka. Ubiquitous language, use the language of the business domain
 
  - Bounded contexts
      -> Small self-contained domain-centric services
 
  - Hexagonal architecture
-     -> Side-effects free business domain model 
+     -> Side-effects free business domain model composed within effectful context
 
  - Event Sourcing
      -> Immutable stream of events as the state of the system
+
+       http://shaffner.us/cs/papers/tarpit.pdf
 
 * A Simple Event Sourced Service from Scratch
 
@@ -73,7 +153,7 @@
    - Can query state of the counter
    - Counter's value can not go below 0 or above 100
 
-* What's demoed
+* What's been demoed
 
  - TDD w/ Property Based Testing
  - Purely functional model event sourced model
@@ -88,29 +168,41 @@
 * Takeaways
 
  - It's easy to define languages and pure models and to play with them
+
  - Strong typing helps enforcing guarantees at all levels
 
 * Takeaways
 
  - It's easy to define languages and pure models and to play with them
- - It's easy to test drive model with properties
+
  - Strong typing helps enforcing guarantees at all levels
+
+ - It's easy to test drive model with properties
 
 * Takeaways
 
  - It's easy to define languages and pure models and to play with them
- - It's easy to test drive model with properties
+
  - Strong typing helps enforcing guarantees at all levels
+
+ - It's easy to test drive model with properties
+
  - Sophisticated type features makes it possible to define and
    compose DSL fragments
 
 * Some Interesting References
 
- - http://okmij.org/ftp/Haskell/extensible/exteff.pdf: Extensible effects theory and 
-   practice in Haskell
+ - http://okmij.org/ftp/Haskell/extensible/exteff.pdf: 
+   Extensible effects theory and practice in Haskell
+
  - https://github.com/atnos-org/eff-cats: Same in Scala
- - http://www.cse.chalmers.se/~rjmh/Papers/QuickCheckST.ps: Testing monadic code w/ QuickCheck
- - http://abailly.github.io/posts/cm-arch-design.html: (Shameless plug) Blog post about the architecture
-   implemented at Capital Match
- - https://github.com/abailly/hevents: (Shameless plug bis) Work-in-progress Haskell library to
-   simplify developing event sourced systems
+
+ - http://www.cse.chalmers.se/~rjmh/Papers/QuickCheckST.ps: 
+   Testing monadic code w/ QuickCheck
+
+ - http://abailly.github.io/posts/cm-arch-design.html: (Shameless plug) 
+   Blog post about the architecture implemented at Capital Match
+
+ - https://github.com/abailly/hevents: (Shameless plug bis)
+   Work-in-progress Haskell library to simplify developing
+   event sourced systems
