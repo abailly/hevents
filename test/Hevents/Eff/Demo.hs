@@ -148,3 +148,11 @@ instance Serialize (Event Counter) where
   put (Added i) = put i
   get           = Added <$> get
 
+-- * Expose our counter services through a REST API
+
+type CounterApi = "counter" :> (Get '[JSON] Int
+                                :<|> "increment" :> Capture "inc" Int :> Get '[JSON] Int
+                                :<|> "decrement" :> Capture "dec" Int :> Get '[JSON] Int)
+
+counterApi :: Proxy CounterApi
+counterApi = Proxy
