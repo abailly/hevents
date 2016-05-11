@@ -32,3 +32,14 @@ import           System.Environment
 import           Test.Hspec
 import           Test.QuickCheck            as Q
 import           Test.QuickCheck.Monadic    as Q
+
+-- * Let's start writing a test...
+
+aCounter :: Spec
+aCounter = describe "Counter Model" $ do
+  it "should apply events from commands given they respect bounds" $ property $
+    prop_shouldApplyCommandRespectingBounds
+
+
+
+
