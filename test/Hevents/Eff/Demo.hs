@@ -117,3 +117,20 @@ effect :: (Typeable m, Typeable e, Storage STM s, Registrar STM m reg)
          => s -> reg
          -> E.Eff (State m E.:> Store E.:> Exc e E.:> Lift STM E.:> Void) a -> IO (Either e a)
 effect s m = atomically . runSync . runExc . W.runStore s .  W.runState m
+
+-- defines how to interpret our action model in terms of actual services
+
+interpret GetCounter     = getCounter
+interpret (IncCounter n) = increment n
+interpret (DecCounter n) = decrement n
+
+getCounter :: EventSourced Int
+getCounter = counter <$> getState
+
+increment :: Int -> EventSourced Int
+increment n = applyCommand (Increment n) >>= storeEvent
+
+decrement :: Int -> EventSourced Int
+decrement n = applyCommand (Decrement n) >>= storeEvent
+
+type EventSourced a = E.Eff (State Counter E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a
