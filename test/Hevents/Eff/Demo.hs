@@ -52,6 +52,11 @@ instance Model Counter where
   data Event Counter = Added Int deriving (Eq,Show)
   data Error Counter = OutOfBounds deriving (Eq,Show)
 
+  init = Counter 0
+
+  Counter _ `act` Increment n = OK $ Added n
+
+  Counter k `apply` Added n = Counter $ k + n
 
 instance Arbitrary (Command Counter) where
   arbitrary = Increment <$> choose (0,20)
