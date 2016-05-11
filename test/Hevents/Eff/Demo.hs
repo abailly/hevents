@@ -44,6 +44,8 @@ aCounter = describe "Counter Model" $ do
 prop_shouldApplyCommandRespectingBounds :: Command Counter -> Bool
 prop_shouldApplyCommandRespectingBounds c@(Increment n) = let OK result = init `act` c
                                                           in  init `apply` result == Counter n
+prop_shouldApplyCommandRespectingBounds c@(Decrement n) = let OK result = Counter 20 `act` c
+                                                          in  init `apply` result == Counter (20 - n)
 
 newtype Counter = Counter { counter :: Int } deriving (Eq,Show)
 
