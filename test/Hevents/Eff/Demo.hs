@@ -167,5 +167,8 @@ prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
 
   assert $ all (\c -> c >= 0 && c <= 100) (rights results)
 
+runClient GetCounter     = runEitherT $ counterState
+runClient (IncCounter n) = runEitherT $ incCounter n
+runClient (DecCounter n) = runEitherT $ decCounter n
 
 handler = getCounter :<|> increment :<|> decrement
