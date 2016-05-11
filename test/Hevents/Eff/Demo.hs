@@ -143,3 +143,8 @@ storeEvent = either
   where
     fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
     fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
+
+instance Serialize (Event Counter) where
+  put (Added i) = put i
+  get           = Added <$> get
+
