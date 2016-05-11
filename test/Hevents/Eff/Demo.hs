@@ -44,21 +44,27 @@ aCounter = describe "Counter Model" $ do
 prop_shouldApplyCommandRespectingBounds :: Command Counter -> Bool
 prop_shouldApplyCommandRespectingBounds c@(Increment n) = let OK result = init `act` c
                                                           in  init `apply` result == Counter n
-prop_shouldApplyCommandRespectingBounds c@(Decrement n) = let OK result = Counter 20 `act` c
-                                                          in  init `apply` result == Counter (20 - n)
+prop_shouldApplyCommandRespectingBounds c@(Decrement n) = let counter20 = Counter 20
+                                                              OK result = counter20 `act` c
+                                                          in  counter20 `apply` result == Counter (20 - n)
 
 newtype Counter = Counter { counter :: Int } deriving (Eq,Show)
 
 instance Model Counter where
-  data Command Counter = Increment Int deriving (Eq, Show)
+  data Command Counter = Increment Int
+                       | Decrement Int
+                       deriving (Eq, Show)
   data Event Counter = Added Int deriving (Eq,Show)
   data Error Counter = OutOfBounds deriving (Eq,Show)
 
   init = Counter 0
 
   Counter _ `act` Increment n = OK $ Added n
+  Counter _ `act` Decrement n = OK $ Added (-n)
 
   Counter k `apply` Added n = Counter $ k + n
 
 instance Arbitrary (Command Counter) where
-  arbitrary = Increment <$> choose (0,20)
+  arbitrary = oneof [ Increment <$> choose (0,20)
+                    , Decrement <$> choose (0,20)
+                    ]
