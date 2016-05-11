@@ -156,3 +156,16 @@ type CounterApi = "counter" :> (Get '[JSON] Int
 
 counterApi :: Proxy CounterApi
 counterApi = Proxy
+
+-- * Let's write a test for our API against actual services, using user-centric actions
+prop_counterServerImplementsCounterApi :: [ CounterAction ] -> Property
+prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
+  results <- Q.run $ do
+    (model, storage) <- prepareContext
+    server <- W.runWebServerErr 8082 counterApi (Nat $ EitherT . effect storage model) handler
+    mapM runClient actions `finally` cancel server
+
+  assert $ all (\c -> c >= 0 && c <= 100) (rights results)
+
+
+handler = getCounter :<|> increment :<|> decrement
