@@ -99,4 +99,10 @@ instance Arbitrary CounterAction where
                         , (1, DecCounter <$> choose (0,10))
                         ]
 
+prop_servicesRespectCounterBounds :: [ CounterAction ] -> Property
+prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
+  results <- Q.run $ do
+    (model, storage) <- prepareContext
+    mapM (effect storage model . interpret) actions
 
+  assert $ all (\c -> c >= 0 && c <= 100) (rights results)
