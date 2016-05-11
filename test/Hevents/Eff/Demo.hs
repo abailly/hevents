@@ -50,6 +50,11 @@ prop_shouldApplyCommandRespectingBounds c@(Decrement n) = let counter20 = Counte
                                                               OK result = counter20 `act` c
                                                           in  counter20 `apply` result == Counter (20 - n)
 
+prop_shouldNotApplyCommandsOverBounds :: [ Command Counter ] -> Bool
+prop_shouldNotApplyCommandsOverBounds commands =
+  let finalCounter = counter $ ST.execState (mapM updateModel commands) init
+  in  finalCounter >= 0 && finalCounter <= 100
+
 newtype Counter = Counter { counter :: Int } deriving (Eq,Show)
 
 instance Model Counter where
