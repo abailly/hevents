@@ -32,3 +32,5 @@ instance Arbitrary (Command TestModel) where
 instance Serialize (Event TestModel) where
   put (Added i) = put i
   get           = Added <$> get
+
+instance Versionable (Event TestModel)

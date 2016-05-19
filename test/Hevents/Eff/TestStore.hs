@@ -23,6 +23,8 @@ instance Arbitrary EventVersion where
 
 newtype SomeString = S { unString :: T.Text } deriving (Eq, Show)
 
+instance Versionable SomeString
+
 instance Arbitrary SomeString where
   arbitrary = S . T.pack <$> resize 50 arbitrary
 

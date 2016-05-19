@@ -37,7 +37,7 @@ Library
   exposed-modules:  Hevents, Hevents.Eff
   other-modules:    Hevents.Model, Hevents.Store, Hevents.State, Hevents.Service
                   , Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync
-                  , Hevents.Eff.Store, Hevents.Eff.Store.MemoryStorage, Hevents.Eff.Store.Events
+                  , Hevents.Eff.Store, Hevents.Eff.Store.MemoryStorage, Hevents.Eff.Store.FileStorage, Hevents.Eff.Store.Events
                   , Hevents.Eff.WebServer
   default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving

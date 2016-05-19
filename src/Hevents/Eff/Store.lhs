@@ -3,7 +3,7 @@ interpretation of the "requests" for this effect are left to low-level instances
 
 > module Hevents.Eff.Store(module Hevents.Eff.Store.Events,
 >                          Storage(..),Reader,Store(..),StoreError(..),Count(..),Offset(..),
->                          Version, Serializable(..),
+>                          Versionable(..), Version(..),
 >                          store,load,reset,
 >                          runStore) where
 > 
@@ -21,21 +21,23 @@ interpretation of the "requests" for this effect are left to low-level instances
 > data StoreError = IOError { reason :: !Text } deriving (Show)
 >
 
-Interface for serializing objects. The serialization should take into account the *version* of the object
-in order to handle schema migrations gracefully:
-
-> type Version = Int
-> 
-> class (Serialize s) => Serializable s where
->  write :: Version -> s -> ByteString
->  read  :: Version -> ByteString -> Either StoreError s
-
-
 A class for low-level implementation details of storage operations. A `Storage` will be used by a `Store`
 to *atomically* `persist` a serializable value. The persistence action is run as part of a STM transaction
 with the intent that if it fails, one can `retry` or `abort` the transaction hence discard any other transactional
 effects that might require storage to be successful.
 
+> class (Serialize s) => Versionable s where
+>   write :: Version -> s -> ByteString
+>   write _ = runPut . put
+>   read :: Version -> ByteString -> Either String s
+>   read _ = runGet get
+>
+> instance Versionable () where
+>   write = undefined
+>   read = undefined
+>   
+> newtype Version  = Version { version :: Int } deriving (Eq,Show, Num)
+> 
 > class Monad m => Storage m s where
 >   persist :: (SetMember Lift (Lift m) (Store :> r)) =>  s -> Store (Eff (Store :> r) a) -> Eff (Store :> r) a
 >
@@ -47,13 +49,13 @@ effects that might require storage to be successful.
 
 Store a serializable value in the underlying persistent storage appending it to existing events stream.
 
->   Store :: (Serializable x) => x                          -> (StoreResult x   -> a) -> Store a
+>   Store :: (Versionable x) => x                          -> (StoreResult x   -> a) -> Store a
 
 Load a potentially partial stream from underlying storage. We need to pass the `Reader x` function as
 the type of object to deserialize is packed within the constructor hence cannot be known by the
 `Storage` responsible for fetching the data.
 
->   Load  :: (Serializable x) => Offset -> Count ->  Reader x -> (StoreResult [x] -> a) -> Store a
+>   Load  :: (Versionable x) => Offset -> Count ->  Reader x -> (StoreResult [x] -> a) -> Store a
 
 Reset the event stream discarding all previous events.
 
@@ -66,11 +68,11 @@ Usual boilerplate to turn `Store` in Functor and create Free monad from construc
 >   f `fmap` (Load o c g k) = Load o c g (f . k)
 >   f `fmap` (Reset k)      = Reset (f . k)
 > 
-> store :: (Member Store r, Serializable x)
+> store :: (Member Store r, Versionable x)
 >         => x -> Eff r (StoreResult x)
 > store x = send $ inj $ Store x id
 > 
-> load :: (Member Store r, Serializable x) => Offset -> Count -> Eff r (StoreResult [x])
+> load :: (Member Store r, Versionable x) => Offset -> Count -> Eff r (StoreResult [x])
 > load off cnt = send $ inj $ Load off cnt (runGet get) id
 > 
 > reset :: (Member Store r) => Eff r (StoreResult ())
