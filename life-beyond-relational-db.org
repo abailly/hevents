@@ -1,16 +1,34 @@
 
 
 
-                Life Beyond Relational Database
-                            -
-                  Event Sourcing in Haskell
+            Life Beyond Relational Database
+                        -
+              Event Sourcing in Haskell
 
-                    @abailly on twitter
+                @abailly on twitter
 
-                      arnaud@igitur.io
+                  arnaud@igitur.io
 
-                      http://igitur.io
+                  http://igitur.io
 
+* Forewords
+
+  "You don't need static type checking if you have 
+   100% unit test coverage." 
+
+   "Uncle Bob" Martin - May 2016
+   http://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html
+
+* Forewords
+
+  "You don't need static type checking if you have 
+   100% unit test coverage."
+
+   "Uncle Bob" Martin - May 2016
+   http://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html
+
+
+                           *WAT?*
 * Introduction
 
  - Thanks to nCrafts team for giving me space and time to 
@@ -22,8 +40,8 @@
    talk about things I love amongst so many people I admire
 
  - This draws on the past 2 years' experience developing 
-   a peer-to-peer platform at Capital Match (http://www.capital-match.com)
-   based on same techniques
+   a peer-to-peer platform at Capital Match based on those
+   techniques (see http://www.capital-match.com)
 
 * Introduction
 
@@ -31,10 +49,10 @@
    talk about things I love amongst so many people I admire
 
  - This draws on the past 2 years' experience developing 
-   a peer-to-peer platform at Capital Match (http://www.capital-match.com)
-   based on same techniques
+   a peer-to-peer platform at Capital Match based on those
+   techniques (see http://www.capital-match.com)
 
- - I assume knowledge of DDD and Event Sourcing terminology
+ - I assume knowledge of TDD, DDD and Event Sourcing terminology
 
 * Introduction
 
@@ -42,10 +60,10 @@
    talk about things I love amongst so many people I admire
 
  - This draws on the past 2 years' experience developing 
-   a peer-to-peer platform at Capital Match (http://www.capital-match.com)
-   based on same techniques
+   a peer-to-peer platform at Capital Match based on those
+   techniques (see http://www.capital-match.com)
 
- - I assume knowledge of DDD and Event Sourcing terminology
+ - I assume knowledge of TDD, DDD and Event Sourcing
 
  - This is pretty much a permanent work-in-progress
 
@@ -58,25 +76,69 @@
    a peer-to-peer platform at Capital Match based on those
    techniques (see http://www.capital-match.com)
 
- - I assume knowledge of DDD and Event Sourcing terminology
+ - I assume knowledge of TDD, DDD and Event Sourcing
 
  - This is pretty much a permanent work-in-progress
 
                 *Feedback* welcomed
 
+* Goal(s)
+
+      To share experience on implementing a real-world 
+      system using only purely functional tools and 
+      techniques
+
+* Goal(s)
+
+      To share experience on implementing a real-world 
+      system using only purely functional tools and 
+      techniques
+
+      To offer some evidence strongly typed functional 
+      programs are a perfect fit for modern software
+      design techniques
+      
+* Goal(s)
+
+      To share experience on implementing a real-world 
+      system using only purely functional tools and 
+      techniques
+
+      To offer some evidence strongly typed functional 
+      programs are a perfect fit for modern software
+      design techniques
+      
+      To further personal plans towards worldwide Haskell
+      and Emacs domination
+
+* Goal(s)
+
+      To share experience on implementing a real-world 
+      system using only purely functional tools and 
+      techniques
+
+      To offer some evidence strongly typed functional 
+      programs are a perfect fit for modern software
+      design techniques
+      
+      To further personal plans towards worldwide Haskell
+      and Emacs domination
+
+      To have some fun
+
 * Caveats
 
- - (lot of) *Hairy Haskell Code Inside*
+ - (lot of) *Strongly Typed Haskell Code Inside*
 
 * Caveats
 
- - (lot of) *Hairy Haskell Code Inside*
+ - (lot of) *Strongly Typed Haskell Code Inside*
 
  - Not sure how much is understandable or even meaningful...
 
 * Caveats
 
- - (lot of) *Hairy Haskell Code Inside*
+ - (lot of) *Strongly Typed Haskell Code Inside*
 
  - Not sure how much is understandable or even meaningful...
 
@@ -84,65 +146,13 @@
 
 * Caveats
 
- - (lot of) *Hairy Haskell Code Inside*
+ - (lot of) *Strongly Typed Haskell Code Inside*
 
  - Not sure how much is understandable or even meaningful...
 
  - Or this might be so obvious as not being worthy of notice...
 
                  *Feedback* welcomed
-
-* Really getting Out of the Tar Pit
-
-  - *Divide quod impera*
-
-* Really getting Out of the Tar Pit
-
- - *Divide quod impera*
-
- - Domain-focused language(s)
-     -> aka. Ubiquitous language, use the language(s) of the domain(s)
-
-* Really getting Out of the Tar Pit
-
- - *Divide quod impera*
-
- - Domain-focused language(s)
-     -> aka. Ubiquitous language, use the language(s) of the domain(s)
-
- - Bounded contexts
-     -> Small self-contained domain-centric services
-
-* Really getting Out of the Tar Pit
-
- - *Divide quod impera*
-
- - Domain-focused language(s)
-     -> aka. Ubiquitous language, use the language of the business domain
-
- - Bounded contexts
-     -> Small self-contained domain-centric services
-
- - Hexagonal architecture
-     -> Side-effects free business domain model composed within effectful context
-   
-* Really getting Out of the Tar Pit
-
- - *Divide quod impera*
-
- - Domain-focused language(s)
-     -> aka. Ubiquitous language, use the language of the business domain
-
- - Bounded contexts
-     -> Small self-contained domain-centric services
-
- - Hexagonal architecture
-     -> Side-effects free business domain model composed within effectful context
-
- - Event Sourcing
-     -> Immutable stream of events as the state of the system
-
-       http://shaffner.us/cs/papers/tarpit.pdf
 
 * A Simple Event Sourced Service from Scratch
 
@@ -160,6 +170,58 @@
  - Services defined from composable effectful building blocks
  - Statically typed REST API w/ Servant (http://haskell-servant.github.io/)
  - Use the REPL, Luke!
+
+* Really getting Out of the Tar Pit
+
+ - *Divide quod impera*
+
+* Really getting Out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Domain-focused language(s)
+     -> aka. Ubiquitous language
+
+* Really getting Out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Domain-focused language(s)
+     -> aka. Ubiquitous language
+
+ - Bounded contexts
+     -> Small self-contained domain-centric services
+
+* Really getting Out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Domain-focused language(s)
+     -> aka. Ubiquitous language
+
+ - Bounded contexts
+     -> Small self-contained domain-centric services
+
+ - Hexagonal architecture
+     -> Side-effects free business domain model composed
+        within effectful context
+   
+* Really getting Out of the Tar Pit
+
+ - *Divide quod impera*
+
+ - Domain-focused language(s)
+     -> aka. Ubiquitous language
+
+ - Bounded contexts
+     -> Small self-contained domain-centric services
+
+ - Hexagonal architecture
+     -> Side-effects free business domain model composed 
+        within effectful context
+
+ - Event Sourcing
+     -> Immutable stream of events as the state of the system
 
 * Takeaways
 
@@ -206,3 +268,7 @@
  - https://github.com/abailly/hevents: (Shameless plug bis)
    Work-in-progress Haskell library to simplify developing
    event sourced systems
+
+ - http://shaffner.us/cs/papers/tarpit.pdf: Original "Out of the Tar Pit"
+   paper
+
