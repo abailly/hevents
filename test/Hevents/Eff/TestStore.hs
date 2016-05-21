@@ -1,4 +1,4 @@
-module Hevents.Eff.TestStore(SomeString(..),
+module Hevents.Eff.TestStore(SomeString(..), someString,
                              makeMemoryStore,FallibleStorage,readMemoryStore) where
 
 import           Control.Concurrent.STM
@@ -22,6 +22,9 @@ instance Arbitrary EventVersion where
   arbitrary = EventVersion <$> arbitrary
 
 newtype SomeString = S { unString :: T.Text } deriving (Eq, Show)
+
+someString :: String -> SomeString
+someString = S . T.pack
 
 instance Versionable SomeString
 

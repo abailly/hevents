@@ -4,10 +4,12 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Hevents.Eff.Store.FileStorage where
 
+import           Control.Concurrent       (myThreadId, threadDelay)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Eff.Lift
-import           Control.Exception        (Exception, SomeException, catch)
+import           Control.Exception        (Exception, IOException, catch, throw)
+import           Control.Exception.Base   (BlockedIndefinitelyOnSTM)
 import           Control.Monad            (forever)
 import           Control.Monad.Trans      (liftIO)
 import qualified Data.Binary.Get          as Bin
@@ -21,6 +23,7 @@ import           Data.Text                (pack)
 import           Data.Typeable
 import           Hevents.Eff.Store
 import           Prelude                  hiding (length, read)
+
 import           System.IO
 
 
@@ -28,10 +31,10 @@ import           System.IO
 data FileStorage = FileStorage  { storeName    :: String
                                 , storeVersion :: Version
                                 , storeHandle  :: Maybe Handle
-                                                   -- ^Handle to the underlying OS stream for storing events
+                                                 -- ^Handle to the underlying OS stream for storing events
                                 , storeTid     :: TMVar (Async ())
-                                                   -- ^The store's thread id, if store is open and running
-                                , storeTQueue :: TBQueue QueuedOperation
+                                                 -- ^The store's thread id, if store is open and running
+                                , storeTQueue  :: TBQueue QueuedOperation
                                 }
 
 -- |Result of storage operations.
@@ -63,6 +66,7 @@ openFileStorage file = do
   hSetBuffering h NoBuffering
   let s@FileStorage{..} = FileStorage file (Version 1) (Just h) tidvar tq
   tid <- async (runStorage s)
+  putStrLn "opened store"
   atomically $ putTMVar storeTid tid
   return s
 
@@ -78,6 +82,7 @@ openHandleStorage hdl = do
 
 closeFileStorage :: FileStorage -> IO FileStorage
 closeFileStorage s@(FileStorage _ _ h ltid _) = do
+  putStrLn "closing store"
   t <- liftIO $ atomically $ tryTakeTMVar ltid
   case t of
    Just tid -> liftIO $ cancel tid
@@ -86,21 +91,27 @@ closeFileStorage s@(FileStorage _ _ h ltid _) = do
   return s
 
 runStorage :: FileStorage -> IO ()
-runStorage FileStorage{..} = forever $ do
-  QueuedOperation op <- atomically $ readTBQueue storeTQueue
-  let ?currentVersion  = storeVersion
-  void $ runOp op storeHandle
+runStorage FileStorage{..} = do
+  threadDelay 1000000
+  forever $ do
+    putStrLn "dequeueing"
+    QueuedOperation op <- (atomically $ readTBQueue storeTQueue) `catch`
+      (\ (e :: BlockedIndefinitelyOnSTM) -> myThreadId >>= (\ i -> putStrLn ("got blocked while dequeuing in thread " <> show i)) >> throw e)
+    let ?currentVersion  = storeVersion
+    putStrLn "dequeued"
+    void $ runOp op storeHandle
 
 runOp :: (?currentVersion :: Version, Versionable s) => StoreOperation s -> Maybe Handle -> IO (StorageResult s)
 runOp _ Nothing = return $ NoOp
 runOp (OpStore e r) (Just h) =
   do
+    putStrLn "Storing"
     let s = doStore e
     opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed $ fromIntegral $ length s))
-             `catch` \ (ex  :: SomeException) -> return (OpFailed $ "exception " <> show ex <> " while storing event ")
+             `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
     atomically $ putTMVar r opres
+    putStrLn "Stored"
     return opres
-
 
 runOp (OpLoad r) (Just h)  =  do
   pos <- hTell h
@@ -125,18 +136,14 @@ runOp (OpLoad r) (Just h)  =  do
                           return []
 runOp (OpReset r) (Just handle) =
   do
-    w <- (hIsWritable handle)
+    w <- hIsWritable handle
     opres <- case w of
      False -> return $ OpFailed "File handle not writeable while resetting event store"
      True ->  do
-       -- TODO catching all exceptions not a good idea, http://hackage.haskell.org/package/base-4.7.0.2/docs/Control-Exception.html#g:4
-       -- but can't find out what hsetFileSize throws.
-       v <- emptyEvents `catch` \ (ex  :: SomeException) -> return (OpFailed $ "exception" <> (show ex) <> " while resetting event store")
-       atomically $ putTMVar r v
-       return v
-       where emptyEvents = do
-               (hSetFileSize handle 0)
-               return ResetSucceed
+       emptyEvents `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception" <> (show ex) <> " while resetting event store")
+         where emptyEvents = do
+                 (hSetFileSize handle 0)
+                 return ResetSucceed
     atomically $ putTMVar r $ opres
     return opres
 
@@ -168,37 +175,39 @@ doLoad  h = do
       content = runGet msg bs
   return $ (content, fromIntegral $ l + 4)
 
-instance Storage STM FileStorage where
-  persist FileStorage{..} (Store x k)    = lift (enqueueStore x) >>= k . handleStoreResult
-    where
-      enqueueStore v = do
-        tmv <- newEmptyTMVar
-        writeTBQueue storeTQueue (QueuedOperation $ OpStore v
-                                  tmv)
-        readTMVar tmv
+push :: (Versionable s) => (TMVar (StorageResult s) -> StoreOperation s) -> FileStorage ->  IO (StorageResult s)
+push op FileStorage{..} = do
+        v <- atomically $ do
+          tmv <- newEmptyTMVar
+          writeTBQueue storeTQueue (QueuedOperation $ op tmv)
+          return tmv
+        atomically $ takeTMVar v
 
+writeStore :: (Versionable s) => s -> FileStorage -> IO (StorageResult s)
+writeStore s = push (OpStore s)
+
+readStore :: (Versionable s) => FileStorage -> IO (StorageResult s)
+readStore = push OpLoad
+
+resetStore :: FileStorage -> IO (StorageResult ())
+resetStore = push OpReset
+
+
+instance Storage IO FileStorage where
+  persist storage (Store x k)    = lift (writeStore x storage) >>= k . handleStoreResult
+    where
       handleStoreResult (WriteSucceed _) = Right x
       handleStoreResult (OpFailed s)     = Left $ IOError $ "Failed to properly store value: " <> pack s
       handleStoreResult _                = Left $ IOError $ "Unexpected result for store operation"
 
-  persist FileStorage{..} (Load Offset{..} Count{..} _ k) = lift enqueueLoad >>= k . handleLoadResult
+  persist storage (Load Offset{..} Count{..} _ k) = lift (readStore storage) >>= k . handleLoadResult
     where
-      enqueueLoad = do
-        tmv <- newEmptyTMVar
-        writeTBQueue storeTQueue (QueuedOperation $ OpLoad tmv)
-        readTMVar tmv
-
       handleLoadResult (LoadSucceed xs) = Right $ take (fromIntegral count) $ drop (fromIntegral offset) $ xs
       handleLoadResult (OpFailed s)     = Left $ IOError $ "Failed to properly load values: " <> pack s
       handleLoadResult _                = Left $ IOError $ "Unexpected result for store operation"
 
-  persist FileStorage{..} (Reset k)      = lift enqueueReset >>= k . handleResetResult
+  persist storage (Reset k)      = lift (resetStore storage) >>= k . handleResetResult
     where
-      enqueueReset = do
-        tmv <- newEmptyTMVar
-        writeTBQueue storeTQueue (QueuedOperation (OpReset tmv :: StoreOperation ()))
-        readTMVar tmv
-
       handleResetResult ResetSucceed = Right ()
       handleResetResult (OpFailed s) = Left $ IOError $ "Failed to properly reset store: " <> pack s
       handleResetResult _            = Left $ IOError $ "Unexpected result for reset operation"
