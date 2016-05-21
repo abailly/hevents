@@ -1,16 +1,15 @@
 
 
 
-            Life Beyond Relational Database
-                        -
-              Event Sourcing in Haskell
+      Life Beyond Relational Database
+                   -
+        Event Sourcing in Haskell
 
-                @abailly on twitter
+           @abailly on twitter
 
-                  arnaud@igitur.io
+             arnaud@igitur.io
 
-                  http://igitur.io
-
+             http://igitur.io
 * Forewords
 
   "You don't need static type checking if you have 
@@ -251,7 +250,6 @@
 
  - Sophisticated type features makes it possible to define and
    compose DSL fragments
-
 * Some Interesting References
 
  - http://okmij.org/ftp/Haskell/extensible/exteff.pdf: 
