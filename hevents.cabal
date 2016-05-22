@@ -89,3 +89,48 @@ Test-Suite tests
                 , text
                 , time
                 , wai
+
+Executable store
+   Default-Language:  Haskell2010
+   hs-source-dirs:    test
+   default-extensions:
+                      OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
+                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances, GADTs
+
+   main-is:           store.hs
+   ghc-options:       -threaded -Wall -Werror -fno-warn-orphans -rtsopts
+   build-depends: HUnit
+                , QuickCheck
+                , aeson
+                , async
+                , base
+                , binary
+                , bytestring
+                , bytestring-conversion
+                , cereal
+                , clock
+                , containers
+                , data-default
+                , directory
+                , either
+                , exceptions
+                , extensible-effects
+                , filepath
+                , free
+                , hevents
+                , hspec
+                , hspec-wai
+                , http-client
+                , http-types
+                , lens
+                , mtl
+                , servant
+                , servant-client
+                , servant-server
+                , stm
+                , test-framework
+                , test-framework-hunit
+                , test-framework-quickcheck2
+                , text
+                , time
+                , wai                

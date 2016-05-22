@@ -14,8 +14,6 @@ withStore = bracket (openFileStorage "test.store") closeFileStorage
 prop_storeAndLoadSerializableEvents :: [SomeString] -> Property
 prop_storeAndLoadSerializableEvents s = monadicIO $ do
   Right loaded <- Q.run $ withStore $ \ st -> (runLift . runStore st $ reset >> mapM store s >> load 0 (Count $ fromIntegral (length s)))
-  Q.run $ print loaded
-
   assert $ s == loaded
 
 spec :: Spec
