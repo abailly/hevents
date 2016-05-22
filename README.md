@@ -1,4 +1,7 @@
+
 # HEvents: An Event Sourcing Library for Haskell
+
+![](https://travis-ci.org/abailly/hevents.svg?branch=master)
 
 The goal of this library is to make it easy to develop and deploy production grade (micro-)services based on *event sourced* model.
 Each such service should be easily constructed and include the following:
