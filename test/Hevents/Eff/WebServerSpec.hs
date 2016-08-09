@@ -13,7 +13,7 @@ import           Control.Concurrent.STM
 import qualified Control.Eff                as E
 import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception
-import           Control.Monad.Trans.Either
+import           Control.Monad.Except
 import           Data.Functor               (void)
 import           Data.Proxy
 import           Data.Typeable
@@ -23,6 +23,7 @@ import           Hevents.Eff.TestModel
 import           Prelude                    hiding ((.))
 import           Servant
 import           Servant.Client
+import           Network.HTTP.Client        (newManager, defaultManagerSettings)
 import           Test.Hspec
 
 
@@ -51,18 +52,20 @@ spec = describe "Web Server Effect" $ do
   it "should serve HTTP requests given some effectful function" $ do
     (model, storage) <- prepareContext
 
+    mgr <- newManager defaultManagerSettings
+
     s <- W.runWebServer 8082 testAPI (effect storage model) handler
-
-    n <- runClient 42 `finally` cancel s
-
+    
+    n <- runExceptT (runClient 42 mgr baseUrl) `finally` cancel s
+    
     either (error . show) (`shouldBe` 42) n
 
       where
+        baseUrl = (BaseUrl Http "127.0.0.1" 8082 "")
         prepareContext = (,) <$>
           newTVarIO (W.init :: TestModel) <*>
           atomically W.makeMemoryStore
-
-        runClient = runEitherT . client testAPI (BaseUrl Http "localhost" 8082)
+        runClient = client testAPI
 
 
 
