@@ -10,7 +10,7 @@ The `Store` is responsible for persistent storage of events stemming from some `
 > import           Data.Text.Lazy              as L
 > import qualified Data.Text.Lazy.Encoding     as LE
 > import           Hevents.Model
-> import           System.Clock
+> import           System.Clock                (toNanoSecs, fromNanoSecs, TimeSpec)
 > import Data.Aeson as A
 > import Data.String
 > 

@@ -52,6 +52,6 @@ Boilerplate code to:
 
 Effective computation on a `State m` which is delegated to the given `Registrar`.
 
-> runState :: (Model m, Typeable m, Monad mo, SetMember Lift (Lift mo) (State m :> r), Registrar mo m reg) => reg -> Eff (State m :> r) w -> Eff r w
+> runState :: (Typeable m, SetMember Lift (Lift mo) (State m :> r), Registrar mo m reg) => reg -> Eff (State m :> r) w -> Eff r w
 > runState reg = freeMap return (\ u -> handleRelay u (runState reg) (runState reg . update reg))
 

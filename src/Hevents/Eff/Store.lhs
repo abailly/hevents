@@ -81,6 +81,6 @@ Usual boilerplate to turn `Store` in Functor and create Free monad from construc
 Run `Store` actions which are part of some `Union` of actions. The actual storage operations are delegated
 to given `Storage` instance.
 
-> runStore :: (Monad m, SetMember Lift (Lift m) (Store :> r), Storage m s) => s -> Eff (Store :> r) w -> Eff r w
+> runStore :: (SetMember Lift (Lift m) (Store :> r), Storage m s) => s -> Eff (Store :> r) w -> Eff r w
 > runStore s = freeMap return (\ u -> handleRelay u (runStore s) (runStore s . persist s))
 
