@@ -26,7 +26,7 @@ instance (MonadStore m) => MonadStore (ServiceT e s m) where
   store = lift . store
   load  = liftIO . load
 
-runService :: (Monad m) => ServiceT e s m a -> TVar s -> m (Either e a)
+runService :: ServiceT e s m a -> TVar s -> m (Either e a)
 runService effect = runReaderT (runExceptT . runServiceT $ effect)
 
 gets :: (MonadIO m) => (s -> b) -> ServiceT e s m b
