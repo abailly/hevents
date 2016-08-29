@@ -34,16 +34,15 @@ Library
                   , wai-extra
                   , warp
   hs-source-dirs:     src
-  exposed-modules:  Hevents, Hevents.Eff
-  other-modules:    Hevents.Model, Hevents.Store, Hevents.State, Hevents.Service
-                  , Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync
+  exposed-modules:  Hevents.Eff
+  other-modules:    Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync
                   , Hevents.Eff.Store, Hevents.Eff.Store.MemoryStorage, Hevents.Eff.Store.FileStorage, Hevents.Eff.Store.Events
                   , Hevents.Eff.WebServer
   default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
                     , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances, GADTs
                     , DataKinds
-  ghc-options:     -Wall -Werror -fno-warn-orphans -threaded -rtsopts -auto-all -caf-all
+  ghc-options:     -Wall -Werror -fno-warn-orphans -auto-all -caf-all
 
 Test-Suite tests
    Default-Language:  Haskell2010
