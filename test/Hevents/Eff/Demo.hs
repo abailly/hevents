@@ -8,13 +8,15 @@ module Hevents.Eff.Demo where
 
 -- * Imports, stuff to make the compiler happy
 
+import           Network.HTTP.Client        (Manager, defaultManagerSettings,
+                                             newManager)
 import           Control.Category
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import qualified Control.Eff                as E
 import           Control.Eff.Exception
 import           Control.Eff.Lift           as E hiding (lift)
-import           Control.Exception          (finally)
+import           Control.Exception          (finally,throwIO)
 import           Control.Monad.Except
 import qualified Control.Monad.State        as ST
 import           Control.Monad.Trans.Either
@@ -57,12 +59,19 @@ prop_shouldNotApplyCommandsOverBounds commands =
 
 newtype Counter = Counter { counter :: Int } deriving (Eq,Show)
 
+data CCounter  = Increment Int
+               | Decrement Int
+               deriving (Eq, Show)
+
+data ECounter = Added Int deriving (Eq,Show)
+
+data ErCounter  = OutOfBounds deriving (Eq,Show)
+
+type instance Command Counter = CCounter
+type instance Event Counter = ECounter
+type instance Error Counter = ErCounter
+
 instance Model Counter where
-  data Command Counter = Increment Int
-                       | Decrement Int
-                       deriving (Eq, Show)
-  data Event Counter = Added Int deriving (Eq,Show)
-  data Error Counter = OutOfBounds deriving (Eq,Show)
 
   init = Counter 0
 
@@ -76,7 +85,7 @@ instance Model Counter where
 
   Counter k `apply` Added n = Counter $ k + n
 
-instance Arbitrary (Command Counter) where
+instance Arbitrary CCounter where
   arbitrary = oneof [ Increment <$> choose (0,20)
                     , Decrement <$> choose (0,20)
                     ]
@@ -135,7 +144,7 @@ decrement n = applyCommand (Decrement n) >>= storeEvent
 
 type EventSourced a = E.Eff (State Counter E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a
 
-storeEvent :: Either (Error Counter) (Event Counter)
+storeEvent :: Either ErCounter ECounter
              -> EventSourced Int
 storeEvent = either
   (throwExc . fromModelError)
@@ -144,9 +153,11 @@ storeEvent = either
     fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
     fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
 
-instance Serialize (Event Counter) where
+instance Serialize ECounter where
   put (Added i) = put i
   get           = Added <$> get
+
+instance Versionable ECounter
 
 -- * Expose our counter services through a REST API
 
@@ -160,18 +171,20 @@ counterApi = Proxy
 -- * Let's write a test for our API against actual services, using user-centric actions
 prop_counterServerImplementsCounterApi :: [ CounterAction ] -> Property
 prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
+  let baseUrl = BaseUrl Http "localhost" 8082 ""
   results <- Q.run $ do
+    mgr <- newManager defaultManagerSettings
     (model, storage) <- prepareContext
-    server <- W.runWebServerErr 8082 counterApi (Nat $ EitherT . effect storage model) handler
-    mapM runClient actions `finally` cancel server
+    server <- W.runWebServerErr 8082 counterApi (Nat $ ExceptT . effect storage model) handler
+    mapM (runClient mgr baseUrl) actions `finally` cancel server
 
-  assert $ all (\c -> c >= 0 && c <= 100) (rights results)
+  assert $ all (\c -> c >= 0 && c <= 100) results
 
-runClient GetCounter     = runEitherT $ counterState
-runClient (IncCounter n) = runEitherT $ incCounter n
-runClient (DecCounter n) = runEitherT $ decCounter n
+runClient m b GetCounter     = either throwIO return =<< runExceptT (counterState m b)
+runClient m b (IncCounter n) = either throwIO return =<< runExceptT (incCounter n m b)
+runClient m b (DecCounter n) = either throwIO return =<< runExceptT (decCounter n m b)
 
-counterState :<|> incCounter :<|> decCounter = client counterApi (BaseUrl Http "localhost" 8082)
+counterState :<|> incCounter :<|> decCounter = client counterApi
 
 handler = getCounter :<|> increment :<|> decrement
 
@@ -181,4 +194,4 @@ main :: IO ()
 main = do
   [port] <- getArgs
   (model, storage) <- prepareContext
-  W.runWebServerErr (read port) counterApi (Nat $ EitherT . effect storage model) handler >>= wait
+  W.runWebServerErr (Prelude.read port) counterApi (Nat $ ExceptT . effect storage model) handler >>= wait

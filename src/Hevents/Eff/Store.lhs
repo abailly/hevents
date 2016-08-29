@@ -49,7 +49,7 @@ effects that might require storage to be successful.
 
 Store a serializable value in the underlying persistent storage appending it to existing events stream.
 
->   Store :: (Versionable x) => x                          -> (StoreResult x   -> a) -> Store a
+>   Store :: (Versionable x) => x                            -> (StoreResult x   -> a) -> Store a
 
 Load a potentially partial stream from underlying storage. We need to pass the `Reader x` function as
 the type of object to deserialize is packed within the constructor hence cannot be known by the

@@ -7,11 +7,15 @@ import           Test.QuickCheck
 
 newtype TestModel = TestModel { val :: Int } deriving (Eq, Show, Typeable)
 
-instance Model TestModel  where
-  data Command TestModel = Inc Int | Dec Int deriving (Show)
-  data Event TestModel   = Added Int deriving (Show, Eq)
-  data Error TestModel   = OutOfBounds
+data CTestModel = Inc Int | Dec Int deriving (Show)
+data ETestModel   = Added Int deriving (Show)
+data ErTestModel   = OutOfBounds
 
+type instance Event TestModel = ETestModel
+type instance Command TestModel = CTestModel
+type instance Error TestModel = ErTestModel
+
+instance Model TestModel  where
   init = TestModel 0
 
   TestModel n `act` Inc k = if n + k > 100
@@ -24,13 +28,13 @@ instance Model TestModel  where
 
   TestModel n `apply` Added k = TestModel (n + k)
 
-instance Arbitrary (Command TestModel) where
+instance Arbitrary CTestModel where
   arbitrary = oneof [ Inc <$> choose (1,10)
                     , Dec <$> choose (1,10)
                     ]
 
-instance Serialize (Event TestModel) where
+instance Serialize ETestModel where
   put (Added i) = put i
   get           = Added <$> get
 
-instance Versionable (Event TestModel)
+instance Versionable ETestModel
