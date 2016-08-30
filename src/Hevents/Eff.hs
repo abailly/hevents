@@ -13,7 +13,8 @@ module Hevents.Eff(module Hevents.Eff.Model,
                    module Hevents.Eff.Store.MemoryStorage,
                    module Hevents.Eff.Store.FileStorage,
                    effect,
-                   EventSourced)
+                   EventSourced,
+                   throwExc)
                   where
 
 import Control.Eff               

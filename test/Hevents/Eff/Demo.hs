@@ -13,9 +13,6 @@ import           Network.HTTP.Client        (Manager, defaultManagerSettings,
 import           Control.Category
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import qualified Control.Eff                as E
-import           Control.Eff.Exception
-import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Exception          (finally,throwIO)
 import           Control.Monad.Except
 import qualified Control.Monad.State        as ST
