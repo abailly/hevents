@@ -120,13 +120,7 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
 prepareContext = (,)           <$>
   newTVarIO (W.init :: Counter) <*>
   atomically W.makeMemoryStore
-
--- defines the language(s) in which we can express our services
-effect :: (Typeable m, Typeable e, Storage STM s, Registrar STM m reg)
-         => s -> reg
-         -> E.Eff (State m E.:> Store E.:> Exc e E.:> Lift STM E.:> Void) a -> IO (Either e a)
-effect s m = atomically . runSync . runExc . W.runStore s .  W.runState m
-
+  
 -- defines how to interpret our action model in terms of actual services
 
 interpret GetCounter     = getCounter

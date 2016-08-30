@@ -66,7 +66,6 @@ openFileStorage file = do
   hSetBuffering h NoBuffering
   let s@FileStorage{..} = FileStorage file (Version 1) (Just h) tidvar tq
   tid <- async (runStorage s)
-  putStrLn "opened store"
   atomically $ putTMVar storeTid tid
   return s
 
@@ -82,7 +81,6 @@ openHandleStorage hdl = do
 
 closeFileStorage :: FileStorage -> IO FileStorage
 closeFileStorage s@(FileStorage _ _ h ltid _) = do
-  putStrLn "closing store"
   t <- liftIO $ atomically $ tryTakeTMVar ltid
   case t of
    Just tid -> liftIO $ cancel tid
@@ -94,23 +92,19 @@ runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do
   threadDelay 1000000
   forever $ do
-    putStrLn "dequeueing"
     QueuedOperation op <- (atomically $ readTBQueue storeTQueue) `catch`
       (\ (e :: BlockedIndefinitelyOnSTM) -> myThreadId >>= (\ i -> putStrLn ("got blocked while dequeuing in thread " <> show i)) >> throw e)
     let ?currentVersion  = storeVersion
-    putStrLn "dequeued"
     void $ runOp op storeHandle
 
 runOp :: (?currentVersion :: Version, Versionable s) => StoreOperation s -> Maybe Handle -> IO (StorageResult s)
 runOp _ Nothing = return $ NoOp
 runOp (OpStore e r) (Just h) =
   do
-    putStrLn "Storing"
     let s = doStore e
     opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed $ fromIntegral $ length s))
              `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
     atomically $ putTMVar r opres
-    putStrLn "Stored"
     return opres
 
 runOp (OpLoad r) (Just h)  =  do

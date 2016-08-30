@@ -18,7 +18,7 @@ import           Data.Functor               (void)
 import           Data.Proxy
 import           Data.Typeable
 import           Data.Void
-import           Hevents.Eff                as W
+import           Hevents.Eff                as W hiding (effect)
 import           Hevents.Eff.TestModel
 import           Prelude                    hiding ((.))
 import           Servant
