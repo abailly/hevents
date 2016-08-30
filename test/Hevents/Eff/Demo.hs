@@ -127,19 +127,17 @@ interpret GetCounter     = getCounter
 interpret (IncCounter n) = increment n
 interpret (DecCounter n) = decrement n
 
-getCounter :: EventSourced Int
+getCounter :: EventSourced Counter Int
 getCounter = counter <$> getState
 
-increment :: Int -> EventSourced Int
+increment :: Int -> EventSourced Counter Int
 increment n = applyCommand (Increment n) >>= storeEvent
 
-decrement :: Int -> EventSourced Int
+decrement :: Int -> EventSourced Counter Int
 decrement n = applyCommand (Decrement n) >>= storeEvent
 
-type EventSourced a = E.Eff (State Counter E.:> Store E.:> Exc ServantErr E.:> Lift STM E.:> Void) a
-
 storeEvent :: Either ErCounter ECounter
-             -> EventSourced Int
+             -> EventSourced Counter Int
 storeEvent = either
   (throwExc . fromModelError)
   (either (throwExc . fromDBError) (const $ counter <$> getState) <=< store)

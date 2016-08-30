@@ -12,7 +12,8 @@ module Hevents.Eff(module Hevents.Eff.Model,
                    module Hevents.Eff.WebServer,
                    module Hevents.Eff.Store.MemoryStorage,
                    module Hevents.Eff.Store.FileStorage,
-                   effect)
+                   effect,
+                   EventSourced)
                   where
 
 import Control.Eff               
@@ -29,6 +30,10 @@ import           Hevents.Eff.Store.MemoryStorage
 import           Hevents.Eff.Sync
 import           Hevents.Eff.WebServer
 import Data.Typeable
+import Servant(ServantErr)
+
+-- | A generic Event Sourced type composing various effects
+type EventSourced m a = Eff (State m :> Store :> Exc ServantErr :> Lift STM :> Void) a
 
 -- | A generic composite  `effect` made from all available effects
 effect :: (Typeable m, Typeable e, Storage STM s, Registrar STM m reg)
