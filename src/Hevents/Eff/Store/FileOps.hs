@@ -46,8 +46,12 @@ data StoreOperation s where
   OpLoad  :: Versionable s => TMVar (StorageResult s) -> StoreOperation s
   OpReset :: TMVar (StorageResult s) -> StoreOperation s
 
+type OperationHandler s = StoreOperation s -> Maybe Handle -> IO (StorageResult s)
+
 data QueuedOperation where
-  QueuedOperation :: forall s . Versionable s => StoreOperation s -> QueuedOperation
+  QueuedOperation :: forall s . Versionable s =>
+    { operation :: StoreOperation s,
+      opHandler :: (?currentVersion :: Version, Versionable s) => Maybe (OperationHandler s) } -> QueuedOperation
 
 data StorageException = CannotDeserialize String
                       deriving (Show, Typeable)
@@ -87,11 +91,13 @@ closeFileStorage s@(FileStorage _ _ h ltid _) = do
 runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do
   forever $ do
-    QueuedOperation op <- atomically $ readTBQueue storeTQueue
+    QueuedOperation op hdl <- atomically $ readTBQueue storeTQueue
     let ?currentVersion  = storeVersion
-    void $ runOp op storeHandle
+    void $ case hdl of
+      Just h  -> h op storeHandle
+      Nothing -> runOp op storeHandle
 
-runOp :: (?currentVersion :: Version, Versionable s) => StoreOperation s -> Maybe Handle -> IO (StorageResult s)
+runOp :: (?currentVersion :: Version, Versionable s) => OperationHandler s
 runOp _ Nothing = return $ NoOp
 runOp (OpStore e r) (Just h) =
   do
@@ -167,7 +173,7 @@ push :: (Versionable s) => (TMVar (StorageResult s) -> StoreOperation s) -> File
 push op FileStorage{..} = do
         v <- atomically $ do
           tmv <- newEmptyTMVar
-          writeTBQueue storeTQueue (QueuedOperation $ op tmv)
+          writeTBQueue storeTQueue (QueuedOperation (op tmv) Nothing)
           return tmv
         atomically $ takeTMVar v
 
