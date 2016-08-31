@@ -5,11 +5,9 @@
 {-| Low-level file storage engine -}
 module Hevents.Eff.Store.FileOps where
 
-import           Control.Concurrent       (myThreadId)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import           Control.Exception        (Exception, IOException, catch, throw)
-import           Control.Exception.Base   (BlockedIndefinitelyOnSTM)
+import           Control.Exception        (Exception, IOException, catch)
 import           Control.Monad            (forever)
 import           Control.Monad.Trans      (liftIO)
 import qualified Data.Binary.Get          as Bin
@@ -38,7 +36,7 @@ data FileStorage = FileStorage  { storeName    :: String
 -- |Result of storage operations.
 data StorageResult s where
   OpFailed :: { failureReason :: String } -> StorageResult s
-  WriteSucceed :: Int -> StorageResult s
+  WriteSucceed :: (Versionable s) => s -> Int -> StorageResult s
   LoadSucceed :: (Versionable s) => [s] -> StorageResult s
   ResetSucceed :: StorageResult s
   NoOp :: StorageResult s
@@ -89,8 +87,7 @@ closeFileStorage s@(FileStorage _ _ h ltid _) = do
 runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do
   forever $ do
-    QueuedOperation op <- (atomically $ readTBQueue storeTQueue) `catch`
-      (\ (e :: BlockedIndefinitelyOnSTM) -> myThreadId >>= (\ i -> putStrLn ("got blocked while dequeuing in thread " <> show i)) >> throw e)
+    QueuedOperation op <- atomically $ readTBQueue storeTQueue
     let ?currentVersion  = storeVersion
     void $ runOp op storeHandle
 
@@ -99,7 +96,7 @@ runOp _ Nothing = return $ NoOp
 runOp (OpStore e r) (Just h) =
   do
     let s = doStore e
-    opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed $ fromIntegral $ length s))
+    opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed e $ fromIntegral $ length s))
              `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
     atomically $ putTMVar r opres
     return opres

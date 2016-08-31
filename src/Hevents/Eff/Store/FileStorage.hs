@@ -15,9 +15,9 @@ import           Prelude                   hiding (length, read)
 instance Storage IO FileStorage where
   persist storage (Store x k)    = lift (writeStore x storage) >>= k . handleStoreResult
     where
-      handleStoreResult (WriteSucceed _) = Right x
-      handleStoreResult (OpFailed s)     = Left $ IOError $ "Failed to properly store value: " <> pack s
-      handleStoreResult _                = Left $ IOError $ "Unexpected result for store operation"
+      handleStoreResult (WriteSucceed y _) = Right y
+      handleStoreResult (OpFailed s)       = Left $ IOError $ "Failed to properly store value: " <> pack s
+      handleStoreResult _                  = Left $ IOError $ "Unexpected result for store operation"
 
   persist storage (Load Offset{..} Count{..} _ k) = lift (readStore storage) >>= k . handleLoadResult
     where
