@@ -9,7 +9,7 @@ import           Test.QuickCheck
 newtype TestModel = TestModel { val :: Int } deriving (Eq, Show, Typeable)
 
 data CTestModel = Inc Int | Dec Int deriving (Show)
-data ETestModel   = Added Int deriving (Show)
+data ETestModel   = Added Int deriving (Show, Eq)
 data ErTestModel   = OutOfBounds
                    | SystemError Text
 
@@ -42,6 +42,7 @@ instance Serialize ETestModel where
 instance Versionable ETestModel
 
 instance Serialize ErTestModel where
+  -- we don't really care about how this is serialized..
   put _ = put ("Error" :: String)
   get   = pure OutOfBounds
 
