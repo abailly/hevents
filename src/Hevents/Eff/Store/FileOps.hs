@@ -169,20 +169,22 @@ doLoad  h = do
       content = runGet msg bs
   return $ (content, fromIntegral $ l + 4)
 
-push :: (Versionable s) => (TMVar (StorageResult s) -> StoreOperation s) -> FileStorage ->  IO (StorageResult s)
-push op FileStorage{..} = do
+push :: (Versionable s) => (TMVar (StorageResult s) -> StoreOperation s) -> Maybe (OperationHandler s) -> FileStorage ->  IO (StorageResult s)
+push op hdl FileStorage{..} = do
         v <- atomically $ do
           tmv <- newEmptyTMVar
-          writeTBQueue storeTQueue (QueuedOperation (op tmv) Nothing)
+          writeTBQueue storeTQueue (QueuedOperation (op tmv) hdl)
           return tmv
         atomically $ takeTMVar v
 
 writeStore :: (Versionable s) => s -> FileStorage -> IO (StorageResult s)
-writeStore s = push (OpStore s)
+writeStore s = push (OpStore s) Nothing
 
 readStore :: (Versionable s) => FileStorage -> IO (StorageResult s)
-readStore = push OpLoad
+readStore = push OpLoad Nothing
 
 resetStore :: FileStorage -> IO (StorageResult ())
-resetStore = push OpReset
+resetStore = push OpReset Nothing
 
+writeStoreCustom :: (Versionable s) => s -> OperationHandler s -> FileStorage -> IO (StorageResult s)
+writeStoreCustom s h = push (OpStore s) (Just h)
