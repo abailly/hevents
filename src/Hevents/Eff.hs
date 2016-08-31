@@ -17,11 +17,12 @@ module Hevents.Eff(module Hevents.Eff.Model,
                    throwExc)
                   where
 
-import Control.Eff               
-import           Data.Void
-import           Control.Eff.Exception
-import           Control.Eff.Lift           as E hiding (lift)
 import           Control.Concurrent.STM
+import           Control.Eff
+import           Control.Eff.Exception
+import           Control.Eff.Lift                as E hiding (lift)
+import           Data.Typeable
+import           Data.Void
 import           Hevents.Eff.Model
 import           Hevents.Eff.State
 import           Hevents.Eff.State.InMemory
@@ -30,13 +31,12 @@ import           Hevents.Eff.Store.FileStorage
 import           Hevents.Eff.Store.MemoryStorage
 import           Hevents.Eff.Sync
 import           Hevents.Eff.WebServer
-import Data.Typeable
-import Servant(ServantErr)
+import           Servant                         (ServantErr)
 
 -- | A generic Event Sourced type composing various effects
 type EventSourced m a = Eff (State m :> Store :> Exc ServantErr :> Lift STM :> Void) a
 
--- | A generic composite  `effect` made from all available effects
+-- | A generic composite  `effect` made from all available effects with storage in STM
 effect :: (Typeable m, Typeable e, Storage STM s, Registrar STM m reg)
          => s -> reg
          -> Eff (State m :> Store :> Exc e :> Lift STM :> Void) a -> IO (Either e a)

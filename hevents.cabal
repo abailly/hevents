@@ -51,7 +51,7 @@ Library
                   , warp
   hs-source-dirs:     src
   exposed-modules:  Hevents.Eff
-  other-modules:    Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync
+  other-modules:    Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync, Hevents.Eff.Store.FileOps
                   , Hevents.Eff.Store, Hevents.Eff.Store.MemoryStorage, Hevents.Eff.Store.FileStorage, Hevents.Eff.Store.Events
                   , Hevents.Eff.WebServer
   default-extensions:
