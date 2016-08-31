@@ -5,7 +5,7 @@
 {-| Low-level file storage engine -}
 module Hevents.Eff.Store.FileOps where
 
-import           Control.Concurrent       (myThreadId, threadDelay)
+import           Control.Concurrent       (myThreadId)
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
 import           Control.Exception        (Exception, IOException, catch, throw)
@@ -88,7 +88,6 @@ closeFileStorage s@(FileStorage _ _ h ltid _) = do
 
 runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do
-  threadDelay 1000000
   forever $ do
     QueuedOperation op <- (atomically $ readTBQueue storeTQueue) `catch`
       (\ (e :: BlockedIndefinitelyOnSTM) -> myThreadId >>= (\ i -> putStrLn ("got blocked while dequeuing in thread " <> show i)) >> throw e)
