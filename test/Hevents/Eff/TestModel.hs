@@ -1,6 +1,7 @@
 module Hevents.Eff.TestModel  where
 
 import           Data.Serialize
+import           Data.Text
 import           Data.Typeable
 import           Hevents.Eff
 import           Test.QuickCheck
@@ -10,6 +11,7 @@ newtype TestModel = TestModel { val :: Int } deriving (Eq, Show, Typeable)
 data CTestModel = Inc Int | Dec Int deriving (Show)
 data ETestModel   = Added Int deriving (Show)
 data ErTestModel   = OutOfBounds
+                   | SystemError Text
 
 type instance Event TestModel = ETestModel
 type instance Command TestModel = CTestModel
@@ -38,3 +40,10 @@ instance Serialize ETestModel where
   get           = Added <$> get
 
 instance Versionable ETestModel
+
+instance Serialize ErTestModel where
+  put _ = put ("Error" :: String)
+  get   = pure OutOfBounds
+
+instance Versionable ErTestModel
+

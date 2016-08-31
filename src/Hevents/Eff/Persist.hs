@@ -3,7 +3,8 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 -- | An effect which combines a `State` and a `Storage` within IO monad
-module Hevents.Eff.Persist(Persist) where
+module Hevents.Eff.Persist(Persist, makePersist,
+                           state) where
 
 import           Control.Concurrent.STM
 import           Control.Eff.Exception
@@ -31,6 +32,9 @@ data Persist m = Persist { state        :: IORef m
                            -- ^How to interpret storage errors within the model
                          }
 
+makePersist :: (Model m) => m -> FileStorage -> (StoreError -> Error m) -> IO (Persist m)
+makePersist m s h = Persist <$> newIORef m <*> pure s <*> pure h
+
 instance (Model m, Versionable (Error m), Versionable (Event m)) => Registrar IO m (Persist m) where
   update p@Persist{..} (ApplyCommand c k) = lift (runCommand p c) >>= k
   update Persist{..} (GetState k)         = lift (readIORef state) >>= k
@@ -40,7 +44,7 @@ data CommandResult m = Success (Event m)
                      | Fatal StoreError
                        deriving (Generic)
 
-instance (Versionable (Event m), Serialize (Error m)) => Versionable (CommandResult m)
+instance (Versionable (Event m), Versionable (Error m)) => Versionable (CommandResult m)
 instance (Serialize (Event m), Serialize (Error m)) => Serialize (CommandResult m)
 
 runCommand :: (Model m, Versionable (Event m), Versionable (CommandResult m)) => Persist m -> Command m -> IO (Either (Error m) (Event m))
