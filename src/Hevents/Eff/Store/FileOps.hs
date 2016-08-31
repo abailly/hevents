@@ -42,16 +42,18 @@ data StorageResult s where
   NoOp :: StorageResult s
 
 data StoreOperation s where
-  OpStore :: Versionable s => s -> TMVar (StorageResult s) -> StoreOperation s
-  OpLoad  :: Versionable s => TMVar (StorageResult s) -> StoreOperation s
-  OpReset :: TMVar (StorageResult s) -> StoreOperation s
+  OpCustom :: Versionable s => StoreOperation s
+  OpStore :: Versionable s => s -> StoreOperation s
+  OpLoad  :: Versionable s => StoreOperation s
+  OpReset :: StoreOperation s
 
 type OperationHandler s = StoreOperation s -> Maybe Handle -> IO (StorageResult s)
 
 data QueuedOperation where
   QueuedOperation :: forall s . Versionable s =>
     { operation :: StoreOperation s,
-      opHandler :: (?currentVersion :: Version, Versionable s) => Maybe (OperationHandler s) } -> QueuedOperation
+      opHandler :: (?currentVersion :: Version, Versionable s) => Maybe (OperationHandler s),
+      opResult :: TMVar (StorageResult s) } -> QueuedOperation
 
 data StorageException = CannotDeserialize String
                       deriving (Show, Typeable)
@@ -91,30 +93,28 @@ closeFileStorage s@(FileStorage _ _ h ltid _) = do
 runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do
   forever $ do
-    QueuedOperation op hdl <- atomically $ readTBQueue storeTQueue
+    QueuedOperation op hdl res <- atomically $ readTBQueue storeTQueue
     let ?currentVersion  = storeVersion
-    void $ case hdl of
+    atomically . putTMVar res =<< case hdl of
       Just h  -> h op storeHandle
       Nothing -> runOp op storeHandle
 
 runOp :: (?currentVersion :: Version, Versionable s) => OperationHandler s
 runOp _ Nothing = return $ NoOp
-runOp (OpStore e r) (Just h) =
+runOp (OpStore e) (Just h) =
   do
     let s = doStore e
     opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed e $ fromIntegral $ length s))
              `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
-    atomically $ putTMVar r opres
     return opres
 
-runOp (OpLoad r) (Just h)  =  do
+runOp OpLoad (Just h)  =  do
   pos <- hTell h
   hSeek h SeekFromEnd 0
   sz <- hTell h
   hSeek h AbsoluteSeek 0
   opres <- readAll h sz
   hSeek h AbsoluteSeek pos
-  atomically $ putTMVar r (LoadSucceed opres)
   return $ LoadSucceed opres
     where
       readAll :: (?currentVersion :: Version, Versionable s) => Handle -> Integer -> IO [s]
@@ -128,7 +128,7 @@ runOp (OpLoad r) (Just h)  =  do
                               Left err -> fail err
                         else
                           return []
-runOp (OpReset r) (Just handle) =
+runOp OpReset (Just handle) =
   do
     w <- hIsWritable handle
     opres <- case w of
@@ -138,7 +138,6 @@ runOp (OpReset r) (Just handle) =
          where emptyEvents = do
                  (hSetFileSize handle 0)
                  return ResetSucceed
-    atomically $ putTMVar r $ opres
     return opres
 
 
@@ -169,11 +168,11 @@ doLoad  h = do
       content = runGet msg bs
   return $ (content, fromIntegral $ l + 4)
 
-push :: (Versionable s) => (TMVar (StorageResult s) -> StoreOperation s) -> Maybe (OperationHandler s) -> FileStorage ->  IO (StorageResult s)
+push :: (Versionable s) => StoreOperation s -> Maybe (OperationHandler s) -> FileStorage ->  IO (StorageResult s)
 push op hdl FileStorage{..} = do
         v <- atomically $ do
           tmv <- newEmptyTMVar
-          writeTBQueue storeTQueue (QueuedOperation (op tmv) hdl)
+          writeTBQueue storeTQueue (QueuedOperation op hdl tmv)
           return tmv
         atomically $ takeTMVar v
 
@@ -186,5 +185,5 @@ readStore = push OpLoad Nothing
 resetStore :: FileStorage -> IO (StorageResult ())
 resetStore = push OpReset Nothing
 
-writeStoreCustom :: (Versionable s) => s -> OperationHandler s -> FileStorage -> IO (StorageResult s)
-writeStoreCustom s h = push (OpStore s) (Just h)
+writeStoreCustom :: (Versionable s) => OperationHandler s -> FileStorage -> IO (StorageResult s)
+writeStoreCustom h = push OpCustom (Just h)

@@ -16,7 +16,7 @@ TODO: extract the low-level State update part to be able to have different way t
 
 A `Registrar` is responsible for the machinery needed to apply commands, maintain and retrieve state
 
-> class (Monad m, Model s) => Registrar m s g | s -> g where
+> class (Monad m, Model s) => Registrar m s g  where
 >   update :: (SetMember Lift (Lift m) r, Member (State s) r) =>  g -> State s (Eff r a) -> Eff r a
 >   
 
