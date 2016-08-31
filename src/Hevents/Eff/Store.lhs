@@ -1,3 +1,5 @@
+> {-# LANGUAGE DeriveGeneric #-}
+
 An effect for persistently storing events to an underlying stream. `Store` effect is abstract in the sense that some parts of the
 interpretation of the "requests" for this effect are left to low-level instances of `Storage`.  
 
@@ -9,16 +11,24 @@ interpretation of the "requests" for this effect are left to low-level instances
 > 
 > import Data.Serialize
 > import Data.ByteString(ByteString)
+> import Data.Text.Encoding
 > import Data.Text(Text)
 > import Control.Eff
 > import Control.Eff.Lift
 > import Hevents.Eff.Store.Events
 > import Data.Int
+> import Data.Serialize
+> import GHC.Generics
 > 
 > newtype Offset = Offset { offset :: Int64 } deriving (Eq, Ord, Show, Read, Serialize, Num)
 > newtype Count  = Count { count :: Int64 } deriving (Eq, Ord, Show, Read, Serialize, Num)
 >
-> data StoreError = IOError { reason :: !Text } deriving (Show)
+> data StoreError = IOError { reason :: !Text } deriving (Show, Generic)
+>
+> instance Serialize StoreError where
+>   put (IOError t) = put (encodeUtf8 t)
+>   get             = IOError . decodeUtf8 <$> get
+> 
 >
 
 A class for low-level implementation details of storage operations. A `Storage` will be used by a `Store`
