@@ -9,7 +9,6 @@ interpretation of the "requests" for this effect are left to low-level instances
 >                          store,load,reset,
 >                          runStore) where
 > 
-> import Data.Serialize
 > import Data.ByteString(ByteString)
 > import Data.Text.Encoding
 > import Data.Text(Text)

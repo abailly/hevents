@@ -2,16 +2,14 @@
 module Hevents.Eff.PersistSpec(spec) where
 
 import           Control.Concurrent.Async
-import           Control.Concurrent.STM
 import           Control.Eff              as E
 import           Control.Eff.Lift         as E
 import           Control.Exception        (bracket)
 import           Data.Either
+import           Data.Functor
 import           Data.IORef
-import           Data.Void
 import           Hevents.Eff              as S
 import           Hevents.Eff.TestModel
-import           Hevents.Eff.TestModel2
 import           Prelude                  hiding (init)
 import           Test.Hspec
 import           Test.QuickCheck          as Q
@@ -28,9 +26,9 @@ prop_persistentStateSerializesConcurrentWrites commands = monadicIO $ do
 
       added (Added k) = k
 
-  (v, evs) <- Q.run $ withStore $ \ store -> do
-    resetStore store
-    m <- makePersist init store systemError
+  (v, evs) <- Q.run $ withStore $ \ st -> do
+    void $ resetStore st
+    m <- makePersist init st systemError
     evs <- concat <$> mapConcurrently (runLift . runState m . c) commands
     v   <- readIORef (state m)
     return (v, evs)

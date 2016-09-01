@@ -100,7 +100,8 @@ runStorage FileStorage{..} = do
       Nothing -> runOp op storeHandle
 
 runOp :: (?currentVersion :: Version, Versionable s) => OperationHandler s
-runOp _ Nothing = return $ NoOp
+runOp _           Nothing  = return $ NoOp
+runOp OpCustom    _        = return $ NoOp
 runOp (OpStore e) (Just h) =
   do
     let s = doStore e
@@ -108,7 +109,7 @@ runOp (OpStore e) (Just h) =
              `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
     return opres
 
-runOp OpLoad (Just h)  =  do
+runOp OpLoad      (Just h) =  do
   pos <- hTell h
   hSeek h SeekFromEnd 0
   sz <- hTell h

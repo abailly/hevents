@@ -6,24 +6,20 @@
 module Hevents.Eff.Persist(Persist, makePersist,
                            state) where
 
-import           Control.Concurrent.STM
-import           Control.Eff.Exception
 import           Control.Eff.Lift
 import           Control.Exception
-import           Data.ByteString            hiding (pack)
+import           Data.ByteString           hiding (pack)
 import           Data.IORef
 import           Data.Monoid
 import           Data.Serialize
-import           Data.Text                  (pack)
+import           Data.Text                 (pack)
 import           GHC.Generics
 import           Hevents.Eff.Model
 import           Hevents.Eff.State
-import           Hevents.Eff.State.InMemory (actAndApply)
-import           Hevents.Eff.Store
+import           Hevents.Eff.Store         hiding (store)
 import           Hevents.Eff.Store.FileOps
-import           Prelude                    hiding (length)
+import           Prelude                   hiding (length)
 import           System.IO
-import           System.IO.Error
 
 data Persist m = Persist { state        :: IORef m
                            -- ^The persistent state managed by this effect
@@ -32,7 +28,7 @@ data Persist m = Persist { state        :: IORef m
                            -- ^How to interpret storage errors within the model
                          }
 
-makePersist :: (Model m) => m -> FileStorage -> (StoreError -> Error m) -> IO (Persist m)
+makePersist :: m -> FileStorage -> (StoreError -> Error m) -> IO (Persist m)
 makePersist m s h = Persist <$> newIORef m <*> pure s <*> pure h
 
 instance (Model m, Versionable (Error m), Versionable (Event m)) => Registrar IO m (Persist m) where
@@ -48,7 +44,7 @@ instance (Versionable (Event m), Versionable (Error m)) => Versionable (CommandR
 instance (Serialize (Event m), Serialize (Error m)) => Serialize (CommandResult m)
 
 runCommand :: (Model m, Versionable (Event m), Versionable (CommandResult m)) => Persist m -> Command m -> IO (Either (Error m) (Event m))
-runCommand Persist{..} c = writeStoreCustom (go c) store >>= return . handleResult
+runCommand Persist{..} command = writeStoreCustom (go command) store >>= return . handleResult
   where
     go c OpCustom (Just h) = flip WriteSucceed 0 <$> do
       let ?currentVersion = storeVersion store
@@ -61,7 +57,7 @@ runCommand Persist{..} c = writeStoreCustom (go c) store >>= return . handleResu
                    `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
           case opres of
             WriteSucceed _ _ -> modifyIORef state (`apply` e) >> return (Success e)
-            OpFailed s       -> return $ Fatal (IOError $ pack s)
+            OpFailed f       -> return $ Fatal (IOError $ pack f)
             _                -> return $ Fatal (IOError "Something got wrong...")
         KO er -> return $ Failure er
     go _ _ _               = return $ OpFailed $ "should not happen: don't know how to interpret command and store operation in custom context"
@@ -69,3 +65,4 @@ runCommand Persist{..} c = writeStoreCustom (go c) store >>= return . handleResu
     handleResult (WriteSucceed (Success e)  _) = Right e
     handleResult (WriteSucceed (Failure er) _) = Left er
     handleResult (WriteSucceed (Fatal er)   _) = Left $ errorHandler er
+    handleResult _                             = Left $ errorHandler (IOError "Should never happen, something got wrong")

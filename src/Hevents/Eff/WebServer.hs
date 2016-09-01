@@ -43,8 +43,8 @@ runWebServerErr port p eff hdl = async $ W.run port $ serve p hdler
 runWebServerOnFreePort :: (HasServer api '[], Enter (EffServer api r) (EffToServant r) (Server api))
              => Proxy api -> (Eff r :~> ExceptT ServantErr IO) -> ServerT api (Eff r) -> IO (Port, Async ())
 runWebServerOnFreePort p eff hdl = do
-  sock <- mkTCPSocket
-  port <- socketPort sock
+  sock   <- mkTCPSocket
+  port   <- socketPort sock
   thread <- async $ W.runSettingsSocket defaultSettings sock $ serve p hdler
   return (fromIntegral port, thread)
   where

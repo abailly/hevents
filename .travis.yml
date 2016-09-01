@@ -41,6 +41,7 @@ matrix:
 
   allow_failures:
   - env: BUILD=stack ARGS="--resolver nightly"
+  - env: BUILD=stack ARGS="--resolver lts-6.14"
 
 before_install:
 # Using compiler above sets CC to an invalid value, so unset it
