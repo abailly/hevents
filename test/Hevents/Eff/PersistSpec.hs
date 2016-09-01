@@ -4,7 +4,6 @@ module Hevents.Eff.PersistSpec(spec) where
 import           Control.Concurrent.Async
 import           Control.Eff              as E
 import           Control.Eff.Lift         as E
-import           Control.Exception        (bracket)
 import           Data.Either
 import           Data.Functor
 import           Data.IORef

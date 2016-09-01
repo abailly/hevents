@@ -13,7 +13,7 @@ module Hevents.Eff(module Hevents.Eff.Model,
                    module Hevents.Eff.WebServer,
                    module Hevents.Eff.Store.MemoryStorage,
                    module Hevents.Eff.Store.FileStorage,
-                   effect,
+                   effect, runLift,
                    EventSourced,
                    throwExc)
                   where
@@ -43,3 +43,4 @@ effect :: (Typeable m, Typeable e, Storage STM s, Registrar STM m reg)
          => s -> reg
          -> Eff (State m :> Store :> Exc e :> Lift STM :> Void) a -> IO (Either e a)
 effect s m = atomically . runSync . runExc . runStore s .  runState m
+
