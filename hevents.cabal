@@ -15,7 +15,7 @@ description:
                        framework
                      * <http://haskell-servant.readthedocs.io/en/stable/ servant> provides the RESTful API infrastructure.
                      
-version:             0.1.0.0
+version:             0.2.0.0
 license:             MIT
 license-file:        LICENSE
 author:              Arnaud Bailly
