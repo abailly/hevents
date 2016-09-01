@@ -2,18 +2,19 @@ name:                hevents
 synopsis:            Base building blocks for building event-sourced services in Haskell                                                
 description:
 
-                     HEvents provide needed machinery to build Event Sourced Web Services in Haskell.
-                     User should be able to define only a "Business Domain" model, describing the state of the
-                     service, commands and events that can be used to affect it ; then Hevents provide the
-                     machinery to handle commands, maintain state, persist events in a file-based log, expose
-                     the service through a REST interface, provide logs and metrics...
+            HEvents provide needed machinery to build Event Sourced Web Services in Haskell.
+            User should be able to define only a "Business Domain" model, describing the state of the
+            service, commands and events that can be used to affect it ; then Hevents provide the
+            machinery to handle commands, maintain state, persist events in a file-based log, expose
+            the service through a REST interface, provide logs and metrics...
 
-                     HEvents is based on some other great packages:
-
-                     * <https://hackage.haskell.org/package/extensible-effects-1.11.0.2 extensible-effects> provides the
-                       type-level tooling anc conceptual framework for composing individual effects into a full-stack
-                       framework
-                     * <http://haskell-servant.readthedocs.io/en/stable/ servant> provides the RESTful API infrastructure.
+            HEvents is based on some other great packages:
+            
+            * <https://hackage.haskell.org/package/extensible-effects-1.11.0.2 extensible-effects> provides the
+              type-level tooling anc conceptual framework for composing individual effects into a full-stack
+              framework
+                
+            * <http://haskell-servant.readthedocs.io/en/stable/ servant> provides the RESTful API infrastructure.
                      
 version:             0.2.0.0
 license:             MIT

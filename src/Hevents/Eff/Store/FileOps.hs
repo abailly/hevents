@@ -7,7 +7,7 @@ module Hevents.Eff.Store.FileOps where
 
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import           Control.Exception        (Exception, IOException, catch)
+import           Control.Exception        (Exception, IOException, bracket, catch)
 import           Control.Monad            (forever)
 import           Control.Monad.Trans      (liftIO)
 import qualified Data.Binary.Get          as Bin
@@ -89,6 +89,11 @@ closeFileStorage s@(FileStorage _ _ h ltid _) = do
    Nothing  -> return ()
   void $ hClose `traverse` h
   return s
+
+-- | Run some computation requiring a `FileStorage`, automatically opening and closing required
+-- file.
+withStorage :: FilePath -> (FileStorage -> IO a) -> IO a
+withStorage fp = bracket (openFileStorage fp) closeFileStorage
 
 runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do

@@ -26,14 +26,14 @@ prop_persistentStateSerializesConcurrentWrites commands = monadicIO $ do
 
       added (Added k) = k
 
-  (v, evs) <- Q.run $ withStore $ \ st -> do
+  (v, evs) <- Q.run $ withStorage "test.store" $ \ st -> do
     void $ resetStore st
     m <- makePersist init st systemError
     evs <- concat <$> mapConcurrently (runLift . runState m . c) commands
     v   <- readIORef (state m)
     return (v, evs)
 
-  LoadSucceed evs' <- Q.run $ withStore readStore
+  LoadSucceed evs' <- Q.run $ withStorage "test.store" readStore
 
   assert $ val v == sum (map added evs)
 
@@ -41,9 +41,6 @@ prop_persistentStateSerializesConcurrentWrites commands = monadicIO $ do
   -- although all command execution and writes are serialized, it is possible the events be
   -- returned to this test thread in different orders
   assert $ all (`elem` evs') evs && all (`elem` evs) evs'
-
-withStore :: (FileStorage -> IO a) -> IO a
-withStore = bracket (openFileStorage "test.store") closeFileStorage
 
 spec :: Spec
 spec = describe "State Effect" $ do
