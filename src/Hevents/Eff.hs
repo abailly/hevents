@@ -14,6 +14,7 @@ module Hevents.Eff(module Hevents.Eff.Model,
                    module Hevents.Eff.Store.MemoryStorage,
                    module Hevents.Eff.Store.FileStorage,
                    module Control.Eff.Exception,
+                   module Control.Eff,
                    module E,
                    effect)
                   where

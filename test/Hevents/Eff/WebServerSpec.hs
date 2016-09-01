@@ -19,7 +19,7 @@ import           Data.Functor             (void)
 import           Data.Proxy
 import           Data.Typeable
 import           Data.Void
-import           Hevents.Eff              as W hiding (effect)
+import           Hevents.Eff              as W hiding ((:>), effect)
 import           Hevents.Eff.TestModel
 import           Network.HTTP.Client      (defaultManagerSettings, newManager)
 import           Prelude                  hiding ((.))
