@@ -13,7 +13,7 @@ module Hevents.Eff(module Hevents.Eff.Model,
                    module Hevents.Eff.WebServer,
                    module Hevents.Eff.Store.MemoryStorage,
                    module Hevents.Eff.Store.FileStorage,
-                   effect, runLift,
+                   effect, runLift, runExc,
                    EventSourced,
                    throwExc)
                   where
