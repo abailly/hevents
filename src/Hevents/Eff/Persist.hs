@@ -3,7 +3,7 @@
 {-# LANGUAGE ScopedTypeVariables    #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 -- | An effect which combines a `State` and a `Storage` within IO monad
-module Hevents.Eff.Persist(Persist, makePersist,
+module Hevents.Eff.Persist(Persist, makePersist, stopPersist,
                            state) where
 
 import           Control.Eff.Lift
@@ -30,6 +30,9 @@ data Persist m = Persist { state        :: IORef m
 
 makePersist :: m -> FileStorage -> (StoreError -> Error m) -> IO (Persist m)
 makePersist m s h = Persist <$> newIORef m <*> pure s <*> pure h
+
+stopPersist :: Persist m -> IO (Persist m)
+stopPersist p@Persist{..} = closeFileStorage store >> return p
 
 instance (Model m, Versionable (Error m), Versionable (Event m)) => Registrar IO m (Persist m) where
   update p@Persist{..} (ApplyCommand c k) = lift (runCommand p c) >>= k
