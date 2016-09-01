@@ -35,9 +35,9 @@ matrix:
     addons: {apt: {packages: [libgmp,libgmp-dev]}}
 
   # LTS build
-  - env: BUILD=stack ARGS="--resolver lts-6.17"
+  - env: BUILD=stack ARGS="--resolver lts-6.14"
     compiler: ": #stack LTS"
-    addons: {apt: {packages: [ghc-7.1.3, libgmp,libgmp-dev], sources: [hvr-ghc]}}
+    addons: {apt: {packages: [ghc-7.10.3, libgmp,libgmp-dev], sources: [hvr-ghc]}}
 
   allow_failures:
   - env: BUILD=stack ARGS="--resolver nightly"
