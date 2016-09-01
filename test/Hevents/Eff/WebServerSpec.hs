@@ -55,14 +55,14 @@ spec = describe "Web Server Effect" $ do
 
     mgr <- newManager defaultManagerSettings
 
-    s <- W.runWebServer 8083 testAPI (effect storage model) handler
+    (p, s) <- W.runWebServerOnFreePort testAPI (effToHandle $ effect storage model) handler
     threadDelay 500000  -- wait for server to be up
-    n <- runExceptT (runClient 42 mgr baseUrl) `finally` cancel s
+    n <- runExceptT (runClient 42 mgr (baseUrl p)) `finally` cancel s
 
     either (error . show) (`shouldBe` 42) n
 
       where
-        baseUrl = (BaseUrl Http "127.0.0.1" 8083 "")
+        baseUrl p = (BaseUrl Http "127.0.0.1" p "")
         prepareContext = (,) <$>
           newTVarIO (W.init :: TestModel) <*>
           atomically W.makeMemoryStore

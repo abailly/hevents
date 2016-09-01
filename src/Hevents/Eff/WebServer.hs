@@ -5,6 +5,7 @@ import           Control.Category
 import           Control.Concurrent.Async
 import           Control.Eff
 import           Control.Monad.Except
+import           Network.Socket
 import           Network.Wai.Handler.Warp as W
 import           Prelude                  hiding ((.))
 import           Servant
@@ -38,3 +39,20 @@ runWebServerErr port p eff hdl = async $ W.run port $ serve p hdler
     hdler = enter eff hdl
 
 
+-- | Run web server on a random port and returns it
+runWebServerOnFreePort :: (HasServer api '[], Enter (EffServer api r) (EffToServant r) (Server api))
+             => Proxy api -> (Eff r :~> ExceptT ServantErr IO) -> ServerT api (Eff r) -> IO (Port, Async ())
+runWebServerOnFreePort p eff hdl = do
+  sock <- mkTCPSocket
+  port <- socketPort sock
+  thread <- async $ W.runSettingsSocket defaultSettings sock $ serve p hdler
+  return (fromIntegral port, thread)
+  where
+    hdler = enter eff hdl
+
+    mkTCPSocket :: IO Socket
+    mkTCPSocket = do
+      sock <- socket AF_INET Stream defaultProtocol
+      bind sock (SockAddrInet aNY_PORT iNADDR_ANY)
+      listen sock 5
+      return sock
