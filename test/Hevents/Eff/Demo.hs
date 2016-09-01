@@ -8,12 +8,10 @@ module Hevents.Eff.Demo where
 
 -- * Imports, stuff to make the compiler happy
 
-import           Network.HTTP.Client        (Manager, defaultManagerSettings,
-                                             newManager)
 import           Control.Category
 import           Control.Concurrent.Async
 import           Control.Concurrent.STM
-import           Control.Exception          (finally,throwIO)
+import           Control.Exception          (finally, throwIO)
 import           Control.Monad.Except
 import qualified Control.Monad.State        as ST
 import           Control.Monad.Trans.Either
@@ -24,6 +22,8 @@ import           Data.Serialize             (Serialize, get, put)
 import           Data.Typeable
 import           Data.Void
 import           Hevents.Eff                as W
+import           Network.HTTP.Client        (Manager, defaultManagerSettings,
+                                             newManager)
 import           Prelude                    hiding (init, (.))
 import           Servant
 import           Servant.Client
@@ -117,8 +117,10 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
 prepareContext = (,)           <$>
   newTVarIO (W.init :: Counter) <*>
   atomically W.makeMemoryStore
-  
+
 -- defines how to interpret our action model in terms of actual services
+
+type EventSourced m a = Eff (State m :> Store :> Exc ServantErr :> Lift STM :> Void) a
 
 interpret GetCounter     = getCounter
 interpret (IncCounter n) = increment n
