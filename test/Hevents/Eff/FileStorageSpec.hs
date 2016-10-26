@@ -8,12 +8,9 @@ import           Test.Hspec
 import           Test.QuickCheck
 import           Test.QuickCheck.Monadic as Q
 
-withStore :: (FileStorage -> IO a) -> IO a
-withStore = bracket (openFileStorage "test.store") closeFileStorage
-
 prop_storeAndLoadSerializableEvents :: [SomeString] -> Property
 prop_storeAndLoadSerializableEvents s = monadicIO $ do
-  Right loaded <- Q.run $ withStore $ \ st -> (runLift . runStore st $ reset >> mapM store s >> load 0 (Count $ fromIntegral (length s)))
+  Right loaded <- Q.run $ withStorage "test.store" $ \ st -> (runLift . runStore st $ reset >> mapM store s >> load 0 (Count $ fromIntegral (length s)))
   assert $ s == loaded
 
 spec :: Spec
