@@ -7,34 +7,30 @@ module Hevents.Eff.Persist(Persist, makePersist, stopPersist,
                            state) where
 
 import           Control.Eff.Lift
-import           Control.Exception
-import           Data.ByteString           hiding (pack)
 import           Data.IORef
-import           Data.Monoid
 import           Data.Serialize
 import           Data.Text                 (pack)
 import           GHC.Generics
 import           Hevents.Eff.Model
 import           Hevents.Eff.State
-import           Hevents.Eff.Store         hiding (store)
-import           Hevents.Eff.Store.FileOps
+import           Hevents.Eff.Store         
 import           Prelude                   hiding (length)
-import           System.IO
 
-data Persist m = Persist { state        :: IORef m
-                           -- ^The persistent state managed by this effect
-                         , store        :: FileStorage
-                         , errorHandler :: StoreError -> Error m
-                           -- ^How to interpret storage errors within the model
-                         }
+data Persist m s = Persist { state        :: IORef m
+                             -- ^The persistent state managed by this effect
+                           , storeEngine  :: s
+                           -- ^The low-level storage engine
+                           , errorHandler :: StoreError -> Error m
+                             -- ^How to interpret storage errors within the model
+                           }
 
-makePersist :: m -> FileStorage -> (StoreError -> Error m) -> IO (Persist m)
+makePersist :: m -> s -> (StoreError -> Error m) -> IO (Persist m s)
 makePersist m s h = Persist <$> newIORef m <*> pure s <*> pure h
 
-stopPersist :: Persist m -> IO (Persist m)
-stopPersist p@Persist{..} = closeFileStorage store >> return p
+stopPersist :: (Store IO s) => Persist m s -> IO (Persist m s)
+stopPersist p@Persist{..} = close storeEngine >> return p
 
-instance (Model m, Versionable (Error m), Versionable (Event m)) => Registrar IO m (Persist m) where
+instance (Model m, Store IO s, Versionable (Event m)) => Registrar IO m (Persist m s) where
   update p@Persist{..} (ApplyCommand c k) = lift (runCommand p c) >>= k
   update Persist{..} (GetState k)         = lift (readIORef state) >>= k
 
@@ -46,26 +42,21 @@ data CommandResult m = Success (Event m)
 instance (Versionable (Event m), Versionable (Error m)) => Versionable (CommandResult m)
 instance (Serialize (Event m), Serialize (Error m)) => Serialize (CommandResult m)
 
-runCommand :: (Model m, Versionable (Event m), Versionable (CommandResult m)) => Persist m -> Command m -> IO (Either (Error m) (Event m))
-runCommand Persist{..} command = writeStoreCustom (go command) store >>= return . handleResult
+runCommand :: (Model m, Store IO s, Versionable (Event m)) => Persist m s -> Command m -> IO (Either (Error m) (Event m))
+runCommand Persist{..} command = writeCustom pre post storeEngine >>= return . handleResult
   where
-    go c OpCustom (Just h) = flip WriteSucceed 0 <$> do
-      let ?currentVersion = storeVersion store
+    pre = do
       st <- readIORef state
-      let ev = st `act` c
+      let ev = st `act` command
       case ev of
-        OK e -> do
-          let s = doStore e
-          opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed e $ fromIntegral $ length s))
-                   `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
-          case opres of
-            WriteSucceed _ _ -> modifyIORef state (`apply` e) >> return (Success e)
-            OpFailed f       -> return $ Fatal (IOError $ pack f)
-            _                -> return $ Fatal (IOError "Something got wrong...")
-        KO er -> return $ Failure er
-    go _ _ _               = return $ OpFailed $ "should not happen: don't know how to interpret command and store operation in custom context"
+        OK e -> return $ Right e
+        KO e -> return $ Left e
 
-    handleResult (WriteSucceed (Success e)  _) = Right e
-    handleResult (WriteSucceed (Failure er) _) = Left er
-    handleResult (WriteSucceed (Fatal er)   _) = Left $ errorHandler er
-    handleResult _                             = Left $ errorHandler (IOError "Should never happen, something got wrong")
+    post (Right (WriteSucceed ev _)) = modifyIORef state (`apply` ev) >> return (Success ev)
+    post (Right (OpFailed f))        = return $ Fatal (IOError $ pack f)
+    post (Right _)                   = return $ Fatal (IOError "Something got wrong...")
+    post (Left er)                   = return $ Failure er
+    
+    handleResult (Success e)  = Right e
+    handleResult (Failure er) = Left er
+    handleResult (Fatal er)   = Left $ errorHandler er

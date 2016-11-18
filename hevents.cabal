@@ -55,7 +55,7 @@ Library
   exposed-modules:  Hevents.Eff
   other-modules:    Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync, Hevents.Eff.Store.FileOps
                   , Hevents.Eff.Persist
-                  , Hevents.Eff.Store, Hevents.Eff.Store.MemoryStorage, Hevents.Eff.Store.FileStorage, Hevents.Eff.Store.Events
+                  , Hevents.Eff.Store, Hevents.Eff.Store.Events
                   , Hevents.Eff.WebServer
   default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
@@ -108,49 +108,3 @@ Test-Suite tests
                 , text
                 , time
                 , wai
-
-Executable store
-   Default-Language:  Haskell2010
-   hs-source-dirs:    test
-   default-extensions:
-                      OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
-                    , MultiParamTypeClasses, RankNTypes, RecordWildCards, TypeFamilies, TypeOperators, UndecidableInstances, GADTs
-
-   main-is:           store.hs
-   ghc-options:       -threaded -Wall -fno-warn-orphans -rtsopts
-   build-depends: HUnit
-                , QuickCheck
-                , aeson
-                , async
-                , base
-                , binary
-                , bytestring
-                , bytestring-conversion
-                , cereal
-                , clock
-                , containers
-                , data-default
-                , directory
-                , either
-                , exceptions
-                , extensible-effects
-                , filepath
-                , free
-                , hevents
-                , hspec
-                , hspec-wai
-                , http-client
-                , http-types
-                , lens
-                , mtl
-                , servant
-                , servant-client
-                , servant-server
-                , stm
-                , test-framework
-                , test-framework-hunit
-                , test-framework-quickcheck2
-                , text
-                , time
-                , wai                
-

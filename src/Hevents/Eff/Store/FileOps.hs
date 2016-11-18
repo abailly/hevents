@@ -2,6 +2,7 @@
 {-# LANGUAGE ImplicitParams      #-}
 {-# LANGUAGE OverloadedStrings   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+
 {-| Low-level file storage engine -}
 module Hevents.Eff.Store.FileOps where
 
@@ -33,26 +34,9 @@ data FileStorage = FileStorage  { storeName    :: String
                                 , storeTQueue  :: TBQueue QueuedOperation
                                 }
 
--- |Result of storage operations.
-data StorageResult s where
-  OpFailed :: { failureReason :: String } -> StorageResult s
-  WriteSucceed :: (Versionable s) => s -> Int -> StorageResult s
-  LoadSucceed :: (Versionable s) => [s] -> StorageResult s
-  ResetSucceed :: StorageResult s
-  NoOp :: StorageResult s
-
-data StoreOperation s where
-  OpCustom :: Versionable s => StoreOperation s
-  OpStore :: Versionable s => s -> StoreOperation s
-  OpLoad  :: Versionable s => StoreOperation s
-  OpReset :: StoreOperation s
-
-type OperationHandler s = StoreOperation s -> Maybe Handle -> IO (StorageResult s)
-
 data QueuedOperation where
   QueuedOperation :: forall s . Versionable s =>
     { operation :: StoreOperation s,
-      opHandler :: (?currentVersion :: Version, Versionable s) => Maybe (OperationHandler s),
       opResult :: TMVar (StorageResult s) } -> QueuedOperation
 
 data StorageException = CannotDeserialize String
@@ -98,15 +82,14 @@ withStorage fp = bracket (openFileStorage fp) closeFileStorage
 runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do
   forever $ do
-    QueuedOperation op hdl res <- atomically $ readTBQueue storeTQueue
+    QueuedOperation op res <- atomically $ readTBQueue storeTQueue
     let ?currentVersion  = storeVersion
-    atomically . putTMVar res =<< case hdl of
-      Just h  -> h op storeHandle
-      Nothing -> runOp op storeHandle
+    atomically . putTMVar res =<< runOp op storeHandle
 
-runOp :: (?currentVersion :: Version, Versionable s) => OperationHandler s
-runOp _           Nothing  = return $ NoOp
-runOp OpCustom    _        = return $ NoOp
+
+runOp :: (?currentVersion::Version) =>
+         StoreOperation s -> Maybe Handle -> IO (StorageResult s)
+runOp _           Nothing  = return NoOp
 runOp (OpStore e) (Just h) =
   do
     let s = doStore e
@@ -174,22 +157,33 @@ doLoad  h = do
       content = runGet msg bs
   return $ (content, fromIntegral $ l + 4)
 
-push :: (Versionable s) => StoreOperation s -> Maybe (OperationHandler s) -> FileStorage ->  IO (StorageResult s)
-push op hdl FileStorage{..} = do
+push :: (Versionable s) => StoreOperation s -> FileStorage ->  IO (StorageResult s)
+push op FileStorage{..} = do
         v <- atomically $ do
           tmv <- newEmptyTMVar
-          writeTBQueue storeTQueue (QueuedOperation op hdl tmv)
+          writeTBQueue storeTQueue (QueuedOperation op tmv)
           return tmv
         atomically $ takeTMVar v
 
 writeStore :: (Versionable s) => s -> FileStorage -> IO (StorageResult s)
-writeStore s = push (OpStore s) Nothing
+writeStore s = push (OpStore s)
 
 readStore :: (Versionable s) => FileStorage -> IO (StorageResult s)
-readStore = push OpLoad Nothing
+readStore = push OpLoad 
 
 resetStore :: FileStorage -> IO (StorageResult ())
-resetStore = push OpReset Nothing
+resetStore = push OpReset
 
-writeStoreCustom :: (Versionable s) => OperationHandler s -> FileStorage -> IO (StorageResult s)
-writeStoreCustom h = push OpCustom (Just h)
+writeStoreCustom :: (Versionable e) => IO (Either a e) -> (Either a (StorageResult e) -> IO r) -> FileStorage -> IO r
+writeStoreCustom pre post storage = do
+  p <- pre
+  case p of
+    Right s -> push (OpStore s) storage >>= post . Right
+    Left  l -> post (Left l)
+
+instance Store IO FileStorage where
+  close = closeFileStorage
+  store = writeStore
+  load = readStore
+  reset = resetStore
+  writeCustom = writeStoreCustom

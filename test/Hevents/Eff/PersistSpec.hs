@@ -26,13 +26,13 @@ prop_persistentStateSerializesConcurrentWrites commands = monadicIO $ do
       added (Added k) = k
 
   (v, evs) <- Q.run $ withStorage "test.store" $ \ st -> do
-    void $ resetStore st
+    void $ reset st
     m <- makePersist init st systemError
     evs <- concat <$> mapConcurrently (runLift . runState m . c) commands
     v   <- readIORef (state m)
     return (v, evs)
 
-  LoadSucceed evs' <- Q.run $ withStorage "test.store" readStore
+  LoadSucceed evs' <- Q.run $ withStorage "test.store" load
 
   assert $ val v == sum (map added evs)
 
