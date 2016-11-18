@@ -1,18 +1,18 @@
-{-# LANGUAGE TupleSections, TypeFamilyDependencies, DeriveFunctor #-}
+{-# LANGUAGE DeriveFunctor, FlexibleContexts, MultiParamTypeClasses, TupleSections, TypeOperators #-}
 {-| An effect for logging -}
 module Hevents.Eff.Log where
 
-import Control.Arrow(second)
-import Control.Eff           
-import Control.Eff.Lift      (Lift, lift)
-import Data.Typeable
+import           Control.Arrow    (second)
+import           Control.Eff
+import           Control.Eff.Lift (Lift, lift)
+import           Data.Typeable
 
 -- |The type of effect for logging entries of type `entry`
 data Log l a = Log { entry :: l,  next :: a }
   deriving (Functor, Typeable)
 
 -- | a monadic action that does the real logging
-type Logger m l = forall v. Log l v -> m ()
+type Logger m l = l -> m ()
 
 -- | Log something.
 logE :: (Typeable l, Member (Log l) r)
@@ -27,10 +27,10 @@ runLogPure = freeMap (return . (,[])) (\ u -> handleRelay u runLogPure performLo
   where
     performLog (Log l k) = second (l:) <$> runLogPure k
 
--- -- | Run the 'Logger' action in the base monad for every log line.
--- runLog :: (Typeable l, Typeable1 m, SetMember Lift (Lift m) r)
---   => Logger m l -> Eff (Log l :> r) a -> Eff r a
--- runLog logger = handleRelay req go performLog
---   where
---         performLog l = lift (logger l) >> go (logNext l)
+-- | Run the 'Logger' action in the base monad for every log line.
+runLog :: (Typeable l, Typeable m, SetMember Lift (Lift m) (Log l :> r))
+          => Logger m l -> Eff (Log l :> r) a -> Eff r a
+runLog logger = freeMap return (\ u -> handleRelay u (runLog logger) (runLog logger . performLog))
+  where
+    performLog (Log e k) = lift (logger e) >> k
 

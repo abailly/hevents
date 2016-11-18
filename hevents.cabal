@@ -41,6 +41,7 @@ Library
                   , containers
                   , either
                   , extensible-effects
+                  , fast-logger
                   , mtl
                   , network
                   , servant
@@ -56,6 +57,7 @@ Library
   other-modules:    Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync, Hevents.Eff.Store.FileOps
                   , Hevents.Eff.Persist
                   , Hevents.Eff.Store, Hevents.Eff.Store.Events
+                  , Hevents.Eff.Log, Hevents.Eff.Log.Fast
                   , Hevents.Eff.WebServer
   default-extensions:
                       OverloadedStrings,  FlexibleContexts , FlexibleInstances, FunctionalDependencies, GeneralizedNewtypeDeriving
