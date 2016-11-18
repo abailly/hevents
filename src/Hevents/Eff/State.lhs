@@ -1,8 +1,6 @@
 Defines an effect to synchronize changes to a `Model`, following the [Freer](http://okmij.org/ftp/Haskell/extensible/more.pdf) and extensible monad
 paper and library.
 
-TODO: extract the low-level State update part to be able to have different way to update state: locally (using STM), remotely (using WS), remotely w/ replication...
-
 > {-# LANGUAGE DeriveFunctor #-}
 > {-# LANGUAGE GADTs         #-}
 > module Hevents.Eff.State(State(..), Registrar(..), applyCommand, getState, runState) where
