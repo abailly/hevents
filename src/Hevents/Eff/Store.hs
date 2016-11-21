@@ -17,18 +17,17 @@ import           Hevents.Eff.Store.Events
 
 class Store m s  where
   close :: s -> m s
-  store :: (Versionable e) => e -> s -> m (StorageResult e)
+  store :: (Versionable e) =>
+           s  -- ^Storage Engine
+        -> m (Either a e)
+        -- ^Pre-treatment action that returns something to serialize or an error that is passed down to post
+        -- as is
+        -> (Either a (StorageResult e) -> m r)
+        -- ^Post-treatment action that provides some result out of storage result or error in pre-treatment
+        -> m (StorageResult r)
   load  :: (Versionable e) => s -> m (StorageResult e)
   reset :: s -> m (StorageResult ())
-  writeCustom :: (Versionable e)
-    => m (Either a e)
-    -- ^Pre-treatment action that returns something to serialize or an error that is passed down to post
-    -- as is
-    -> (Either a (StorageResult e) -> m r)
-    -- ^Post-treatment action that provides some result out of storage result or error in pre-treatment
-    -> s
-    -- ^Storage Engine
-    -> m r
+
 
 newtype Offset = Offset { offset :: Int64 } deriving (Eq, Ord, Show, Read, Serialize, Num)
 newtype Count  = Count { count :: Int64 } deriving (Eq, Ord, Show, Read, Serialize, Num)
@@ -56,15 +55,30 @@ type Reader a = ByteString -> Either String a
 type StoreResult a = Either StoreError a
 
 -- |Operations provided by the store
-data StoreOperation s where
-  OpStore  :: Versionable s => s -> StoreOperation s
-  OpLoad   :: Versionable s => StoreOperation s
-  OpReset  :: StoreOperation s
+data StoreOperation m s where
+  OpStore  :: Versionable s =>
+    m (Either a s)
+    -- ^Pre-treatment action that returns something to serialize or an error that is passed down to post
+    -- as is
+    -> (Either a (StorageResult s) -> m r)
+    -> StoreOperation m r
+  OpLoad   :: Versionable s => StoreOperation m s
+  OpReset  :: StoreOperation m s
 
 -- |Result of storage operations.
 data StorageResult s where
   OpFailed     :: { failureReason :: String } -> StorageResult s
-  WriteSucceed :: (Versionable s) => s -> Int -> StorageResult s
+  WriteSucceed :: s -> StorageResult s
+  WriteFailed  :: s -> StorageResult s
   LoadSucceed  :: (Versionable s) => [s] -> StorageResult s
   ResetSucceed :: StorageResult s
   NoOp         :: StorageResult s
+
+instance (Show s) => Show (StorageResult s) where
+  show (OpFailed r)     = "OpFailed " ++  r
+  show (WriteSucceed s) = "WriteSucceed " ++ show s
+  show (WriteFailed f)  = "WriteSucceed " ++ show f
+  show (LoadSucceed ss) = "LoadSucceed " ++ show (length ss)
+  show ResetSucceed     = "ResetSucceed"
+  show NoOp             = "NoOp"
+

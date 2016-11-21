@@ -12,6 +12,7 @@ data CTestModel = Inc Int | Dec Int deriving (Show)
 data ETestModel   = Added Int deriving (Show, Eq)
 data ErTestModel   = OutOfBounds
                    | SystemError Text
+                   deriving (Show)
 
 type instance Event TestModel = ETestModel
 type instance Command TestModel = CTestModel

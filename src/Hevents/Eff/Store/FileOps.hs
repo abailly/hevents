@@ -35,8 +35,8 @@ data FileStorage = FileStorage  { storeName    :: String
                                 }
 
 data QueuedOperation where
-  QueuedOperation :: forall s . Versionable s =>
-    { operation :: StoreOperation s,
+  QueuedOperation :: forall s . 
+    { operation :: StoreOperation IO s,
       opResult :: TMVar (StorageResult s) } -> QueuedOperation
 
 data StorageException = CannotDeserialize String
@@ -88,14 +88,18 @@ runStorage FileStorage{..} = do
 
 
 runOp :: (?currentVersion::Version) =>
-         StoreOperation s -> Maybe Handle -> IO (StorageResult s)
+         StoreOperation IO s -> Maybe Handle -> IO (StorageResult s)
 runOp _           Nothing  = return NoOp
-runOp (OpStore e) (Just h) =
+runOp (OpStore pre post) (Just h) =
   do
-    let s = doStore e
-    opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed e $ fromIntegral $ length s))
-             `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
-    return opres
+    p <- pre
+    case p of
+      Right ev -> do
+        let s = doStore ev
+        opres <- (hSeek h SeekFromEnd 0 >> hPut h s >> hFlush h >> return (WriteSucceed ev))
+                 `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while storing event")
+        WriteSucceed <$> (post $ Right opres)
+      Left  l -> WriteFailed <$> post (Left l)
 
 runOp OpLoad      (Just h) =  do
   pos <- hTell h
@@ -157,7 +161,7 @@ doLoad  h = do
       content = runGet msg bs
   return $ (content, fromIntegral $ l + 4)
 
-push :: (Versionable s) => StoreOperation s -> FileStorage ->  IO (StorageResult s)
+push :: StoreOperation IO s -> FileStorage ->  IO (StorageResult s)
 push op FileStorage{..} = do
         v <- atomically $ do
           tmv <- newEmptyTMVar
@@ -165,8 +169,8 @@ push op FileStorage{..} = do
           return tmv
         atomically $ takeTMVar v
 
-writeStore :: (Versionable s) => s -> FileStorage -> IO (StorageResult s)
-writeStore s = push (OpStore s)
+writeStore :: (Versionable e) => FileStorage -> IO (Either a e) -> (Either a (StorageResult e) -> IO r) -> IO (StorageResult r)
+writeStore s pre post = push (OpStore pre post) s
 
 readStore :: (Versionable s) => FileStorage -> IO (StorageResult s)
 readStore = push OpLoad 
@@ -174,16 +178,9 @@ readStore = push OpLoad
 resetStore :: FileStorage -> IO (StorageResult ())
 resetStore = push OpReset
 
-writeStoreCustom :: (Versionable e) => IO (Either a e) -> (Either a (StorageResult e) -> IO r) -> FileStorage -> IO r
-writeStoreCustom pre post storage = do
-  p <- pre
-  case p of
-    Right s -> push (OpStore s) storage >>= post . Right
-    Left  l -> post (Left l)
 
 instance Store IO FileStorage where
   close = closeFileStorage
   store = writeStore
   load = readStore
   reset = resetStore
-  writeCustom = writeStoreCustom
