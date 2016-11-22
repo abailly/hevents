@@ -89,7 +89,7 @@ runStorage FileStorage{..} = do
 
 runOp :: (?currentVersion::Version) =>
          StoreOperation IO s -> Maybe Handle -> IO (StorageResult s)
-runOp _           Nothing  = return NoOp
+runOp _           Nothing         = return NoOp
 runOp (OpStore pre post) (Just h) =
   do
     p <- pre

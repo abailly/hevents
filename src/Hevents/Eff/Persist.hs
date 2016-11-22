@@ -30,7 +30,7 @@ makePersist m s h = Persist <$> newIORef m <*> pure s <*> pure h
 stopPersist :: (Store IO s) => Persist m s -> IO (Persist m s)
 stopPersist p@Persist{..} = close storeEngine >> return p
 
-instance (Model m, Store IO s, Versionable (Event m), Show (Event m), Show (Error m)) => Registrar IO m (Persist m s) where
+instance (Model m, Store IO s, Versionable (Event m)) => Registrar IO m (Persist m s) where
   update p@Persist{..} (ApplyCommand c k) = lift (runCommand p c) >>= k
   update Persist{..} (GetState k)         = lift (readIORef state) >>= k
 
@@ -47,7 +47,7 @@ instance (Show (Event m), Show (Error m)) => Show (CommandResult m) where
 instance (Versionable (Event m), Versionable (Error m)) => Versionable (CommandResult m)
 instance (Serialize (Event m), Serialize (Error m)) => Serialize (CommandResult m)
 
-runCommand :: (Model m, Store IO s, Show (Event m), Show (Error m), Versionable (Event m))
+runCommand :: (Model m, Store IO s, Versionable (Event m))
               => Persist m s -> Command m -> IO (Either (Error m) (Event m))
 runCommand Persist{..} command = store storeEngine pre post  >>= return . handleResult
   where
@@ -65,4 +65,4 @@ runCommand Persist{..} command = store storeEngine pre post  >>= return . handle
     handleResult (WriteSucceed (Success e)) = Right e
     handleResult (WriteFailed (Failure er)) = Left er
     handleResult (WriteFailed (Fatal er))   = Left $ errorHandler er
-    handleResult e                          = Left $ errorHandler (IOError $ pack $ "Something got wrong while trying to store result of command: " ++ show e)
+    handleResult e                          = Left $ errorHandler (IOError $ pack $ "Something got wrong while trying to store result of command")
