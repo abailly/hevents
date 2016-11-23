@@ -56,12 +56,10 @@ type StoreResult a = Either StoreError a
 
 -- |Operations provided by the store
 data StoreOperation m s where
-  OpStore  :: Versionable s =>
-    m (Either a s)
-    -- ^Pre-treatment action that returns something to serialize or an error that is passed down to post
-    -- as is
-    -> (Either a (StorageResult s) -> m r)
-    -> StoreOperation m r
+  OpStore  :: Versionable s
+    => { pre :: m (Either a s) -- ^ Pre-treatment action that returns something to serialize or an error
+       , post :: (Either a (StorageResult s) -> m r)
+       } -> StoreOperation m r
   OpLoad   :: Versionable s => StoreOperation m s
   OpReset  :: StoreOperation m s
 
