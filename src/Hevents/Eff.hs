@@ -15,7 +15,7 @@ module Hevents.Eff(module Hevents.Eff.Model,
 
 import           Control.Eff
 import           Control.Eff.Exception
-import           Control.Eff.Lift           as E hiding (lift)
+import           Control.Eff.Lift           as E
 import           Hevents.Eff.Log
 import           Hevents.Eff.Model
 import           Hevents.Eff.Persist
