@@ -17,6 +17,11 @@ import           Test.QuickCheck.Monadic  as Q
 systemError :: StoreError -> Error TestModel
 systemError (IOError e) = SystemError e
 
+storageOpts = StorageOptions { storageFilePath = "test.store"
+                             , storageVersion = Version 1
+                             , storageQueueSize = 100
+                             }
+
 prop_persistentStateSerializesConcurrentWrites :: [[Command TestModel]] -> Property
 prop_persistentStateSerializesConcurrentWrites commands = monadicIO $ do
   let
@@ -25,14 +30,14 @@ prop_persistentStateSerializesConcurrentWrites commands = monadicIO $ do
 
       added (Added k) = k
 
-  (v, evs) <- Q.run $ withStorage "test.store" $ \ st -> do
+  (v, evs) <- Q.run $ withStorage storageOpts $ \ st -> do
     void $ reset st
     m <- makePersist init st systemError
     evs <- concat <$> mapConcurrently (runLift . runState m . c) commands
     v   <- readIORef (state m)
     return (v, evs)
 
-  LoadSucceed evs' <- Q.run $ withStorage "test.store" load
+  LoadSucceed evs' <- Q.run $ withStorage storageOpts load
 
   assert $ val v == sum (map added evs)
 

@@ -41,13 +41,17 @@ Library
                   , containers
                   , either
                   , extensible-effects
+                  , http-client
                   , mtl
                   , network
+                  , network-uri
                   , servant
                   , servant-server
+                  , servant-client
                   , stm
                   , text
                   , time
+                  , vector
                   , wai
                   , wai-extra
                   , warp
@@ -56,6 +60,7 @@ Library
   other-modules:    Hevents.Eff.Model, Hevents.Eff.State, Hevents.Eff.State.InMemory, Hevents.Eff.Sync, Hevents.Eff.Store.FileOps
                   , Hevents.Eff.Persist
                   , Hevents.Eff.Store, Hevents.Eff.Store.Events
+                  , Hevents.Eff.Store.WebOps
                   , Hevents.Eff.Log
                   , Hevents.Eff.WebServer
   default-extensions:

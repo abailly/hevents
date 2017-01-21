@@ -6,6 +6,7 @@ module Hevents.Eff(module Hevents.Eff.Model,
                    module Hevents.Eff.Persist,
                    module Hevents.Eff.Store,
                    module Hevents.Eff.Store.FileOps,
+                   module Hevents.Eff.Store.WebOps,
                    module Hevents.Eff.Sync,
                    module Hevents.Eff.WebServer,
                    module Control.Eff.Exception,
@@ -23,5 +24,6 @@ import           Hevents.Eff.State
 import           Hevents.Eff.State.InMemory
 import           Hevents.Eff.Store
 import           Hevents.Eff.Store.FileOps
+import           Hevents.Eff.Store.WebOps
 import           Hevents.Eff.Sync
 import           Hevents.Eff.WebServer

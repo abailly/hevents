@@ -1,19 +1,35 @@
+> {-# LANGUAGE ImplicitParams      #-}
+
 Description of `StoredEvent`s which defines how arbitrary `Serializable` events are stored in underlying
 storage engine.
 
 > module Hevents.Eff.Store.Events where
 > 
-> import Data.ByteString as BS
+> import qualified Data.ByteString as BS
 > import Data.Serialize
 > import           System.Clock
 > 
 > 
-> newtype EventVersion = EventVersion { unVersion :: Int } deriving (Show, Eq)
+> newtype Version = Version { version :: Int } deriving (Show, Eq, Num)
 >
-> defaultVersion :: EventVersion
-> defaultVersion = EventVersion 1
+> instance Serialize Version where
+>   put (Version v) = put v
+>   get             = Version <$> get
 > 
-> newtype SHA1 = SHA1 { unSha1 :: ByteString } deriving (Show, Eq)
+> defaultVersion :: Version
+> defaultVersion = Version 1
+>
+> class (Serialize s) => Versionable s where
+>   write :: Version -> s -> BS.ByteString
+>   write _ = runPut . put
+>   read :: Version -> BS.ByteString -> Either String s
+>   read _ = runGet get
+> 
+> instance Versionable () where
+>   write = undefined
+>   read = undefined
+
+> newtype SHA1 = SHA1 { unSha1 :: BS.ByteString } deriving (Show, Eq)
 >
 > defaultSha1 :: SHA1
 > defaultSha1 = SHA1 $ BS.replicate 20 0
@@ -22,7 +38,7 @@ storage engine.
 A `StoredEvent` is a basic unit of storage. 
 
 > data StoredEvent a =
->   (Serialize a) => StoredEvent { eventVersion :: EventVersion  -- ^Version of this event, useful to support migration and graceful upgrades of events
+>   (Serialize a) => StoredEvent { eventVersion :: Version  -- ^Version of this event, useful to support migration and graceful upgrades of events
 >                               , eventDate    :: TimeSpec      -- ^Timestamp for this event, a pair of (seconds,ns) since Epoch
 >                               , eventSHA1    :: SHA1          -- ^Current source code version at time of event
 >                               , event        :: a
@@ -36,7 +52,7 @@ A `StoredEvent` is a basic unit of storage.
 > 
 > instance (Serialize a ) => Serialize (StoredEvent a) where
 >   put StoredEvent{..} = do
->     put           $ unVersion eventVersion
+>     put           $ version eventVersion
 >     put           $ sec $ eventDate
 >     put           $ nsec $ eventDate
 >     putByteString $ unSha1 eventSHA1
@@ -46,7 +62,7 @@ A `StoredEvent` is a basic unit of storage.
 >     putByteString payload
 >
 >   get = do
->     v <- EventVersion <$> get
+>     v <- Version <$> get
 >     d <- TimeSpec <$> get <*> get
 >     s <- SHA1 <$> getByteString 20
 >     l <- fromIntegral <$> getWord64le
@@ -56,3 +72,14 @@ A `StoredEvent` is a basic unit of storage.
 >       Left  err -> fail err
 >     
 
+
+Convert a serializable to ByteString for binary storage
+
+> doStore :: (?currentVersion :: Version, Versionable s) => s -> BS.ByteString
+> doStore e = let bs = write ?currentVersion e
+>                 crc = 42  -- TODO compute real CRC32
+>             in runPut $ do
+>   putWord32be $ fromIntegral (BS.length bs + 4 + 1)
+>   putWord8 (fromIntegral $ version ?currentVersion)
+>   putWord32be crc
+>   putByteString bs

@@ -40,9 +40,9 @@ data CommandResult m = Success (Event m)
                        deriving (Generic)
 
 instance (Show (Event m), Show (Error m)) => Show (CommandResult m) where
-  show (Success e) = "Success " ++ show e
-  show (Failure f) = "Failure " ++ show f
-  show (Fatal   e) = "Fatal " ++ show e
+  show (Success e) = "[Success] " ++ show e
+  show (Failure f) = "[Failure] " ++ show f
+  show (Fatal   e) = "[Fatal  ] " ++ show e
    
 instance (Versionable (Event m), Versionable (Error m)) => Versionable (CommandResult m)
 instance (Serialize (Event m), Serialize (Error m)) => Serialize (CommandResult m)
@@ -65,4 +65,4 @@ runCommand Persist{..} command = store storeEngine pre post  >>= return . handle
     handleResult (WriteSucceed (Success e)) = Right e
     handleResult (WriteFailed (Failure er)) = Left er
     handleResult (WriteFailed (Fatal er))   = Left $ errorHandler er
-    handleResult e                          = Left $ errorHandler (IOError $ pack $ "Something got wrong while trying to store result of command")
+    handleResult _                          = Left $ errorHandler (IOError $ pack $ "Something got wrong while trying to store result of command")

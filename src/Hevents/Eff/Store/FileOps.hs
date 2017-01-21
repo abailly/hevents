@@ -1,6 +1,7 @@
 {-# LANGUAGE GADTs               #-}
 {-# LANGUAGE ImplicitParams      #-}
 {-# LANGUAGE OverloadedStrings   #-}
+{-# LANGUAGE RecordWildCards   #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 {-| Low-level file storage engine -}
@@ -12,7 +13,7 @@ import           Control.Exception        (Exception, IOException, bracket, catc
 import           Control.Monad            (forever)
 import           Control.Monad.Trans      (liftIO)
 import qualified Data.Binary.Get          as Bin
-import           Data.ByteString          (ByteString, hGet, hPut, length)
+import           Data.ByteString          (hGet, hPut)
 import           Data.ByteString.Lazy     (fromStrict)
 import           Data.Either
 import           Data.Functor             (void)
@@ -34,6 +35,19 @@ data FileStorage = FileStorage  { storeName    :: String
                                 , storeTQueue  :: TBQueue QueuedOperation
                                 }
 
+-- | Options for opening storage
+data StorageOptions = StorageOptions { storageFilePath :: FilePath
+                                       -- ^The file path to store data
+                                     , storageVersion :: Version
+                                     -- ^Events version. Note this version represents the point of view of the consumer
+                                     -- of this storage which may contain events with different versions. The implementation
+                                     -- of `Versionable` should be able to handle any version, up to `storageVersion`
+                                     , storageQueueSize :: Int
+                                     -- ^Upper bound on the number of store operations that can be queued. The exact value
+                                     -- is dependent on the number of clients this storage is consumed by and the operations
+                                     -- throughput. Requests for operations will block when queue is full.
+                                     }
+                      
 data QueuedOperation where
   QueuedOperation :: forall s . 
     { operation :: StoreOperation IO s,
@@ -44,13 +58,13 @@ data StorageException = CannotDeserialize String
 
 instance Exception StorageException
 
-openFileStorage :: FilePath -> IO FileStorage
-openFileStorage file = do
+openFileStorage :: StorageOptions -> IO FileStorage
+openFileStorage StorageOptions{..} = do
   tidvar  <- atomically newEmptyTMVar
-  tq      <- newTBQueueIO 100  -- TODO remove magic number
-  h <- openFile file ReadWriteMode
+  tq      <- newTBQueueIO storageQueueSize
+  h <- openFile storageFilePath ReadWriteMode
   hSetBuffering h NoBuffering
-  let s@FileStorage{..} = FileStorage file (Version 1) (Just h) tidvar tq
+  let s@FileStorage{..} = FileStorage storageFilePath storageVersion (Just h) tidvar tq
   tid <- async (runStorage s)
   atomically $ putTMVar storeTid tid
   return s
@@ -76,8 +90,8 @@ closeFileStorage s@(FileStorage _ _ h ltid _) = do
 
 -- | Run some computation requiring a `FileStorage`, automatically opening and closing required
 -- file.
-withStorage :: FilePath -> (FileStorage -> IO a) -> IO a
-withStorage fp = bracket (openFileStorage fp) closeFileStorage
+withStorage :: StorageOptions -> (FileStorage -> IO a) -> IO a
+withStorage opts = bracket (openFileStorage opts) closeFileStorage
 
 runStorage :: FileStorage -> IO ()
 runStorage FileStorage{..} = do
@@ -133,16 +147,6 @@ runOp OpReset (Just handle) =
                  return ResetSucceed
     return opres
 
-
--- | Convert a serializable to ByteString for binary storage
-doStore :: (?currentVersion :: Version, Versionable s) => s -> ByteString
-doStore e = let bs = write ?currentVersion e
-                crc = 42  -- TODO compute real CRC32
-            in runPut $ do
-  putWord32be $ fromIntegral (length bs + 4 + 1)
-  putWord8 (fromIntegral $ version ?currentVersion)
-  putWord32be crc
-  putByteString bs
 
 -- |Read a single event from file store, returning also the number of bytes read
 --
