@@ -120,9 +120,10 @@ runOp OpLoad      (Just h) =  do
   hSeek h SeekFromEnd 0
   sz <- hTell h
   hSeek h AbsoluteSeek 0
-  opres <- readAll h sz
+  opres <- (LoadSucceed <$> readAll h sz)
+           `catch` \ (ex  :: IOException) -> return (OpFailed $ "exception " <> show ex <> " while loading events")
   hSeek h AbsoluteSeek pos
-  return $ LoadSucceed opres
+  return opres
     where
       readAll :: (?currentVersion :: Version, Versionable s) => Handle -> Integer -> IO [s]
       readAll hdl sz =  if sz > 0 then
