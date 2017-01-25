@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveGeneric          #-}
 {-# LANGUAGE ImplicitParams         #-}
 {-# LANGUAGE ScopedTypeVariables    #-}
+{-# LANGUAGE AllowAmbiguousTypes    #-}
 {-# LANGUAGE TypeFamilyDependencies #-}
 -- | An effect which combines a `State` and a `Storage` within IO monad
 module Hevents.Eff.Persist(Persist, makePersist, stopPersist,
@@ -16,21 +17,24 @@ import           Hevents.Eff.State
 import           Hevents.Eff.Store         
 import           Prelude                   hiding (length)
 
-data Persist m s = Persist { state        :: IORef m
-                             -- ^The persistent state managed by this effect
-                           , storeEngine  :: s
-                           -- ^The low-level storage engine
-                           , errorHandler :: StoreError -> Error m
-                             -- ^How to interpret storage errors within the model
-                           }
+data Persist m where
+  Persist :: (Store IO s) => { state        :: IORef m
+                               -- ^The persistent state managed by this effect
+                             , storeEngine  :: s
+                             -- ^The low-level storage engine
+                             , errorHandler :: StoreError -> Error m
+                               -- ^How to interpret storage errors within the model
+                             } -> Persist m
 
-makePersist :: m -> s -> (StoreError -> Error m) -> IO (Persist m s)
-makePersist m s h = Persist <$> newIORef m <*> pure s <*> pure h
+makePersist :: (Store IO s) => m -> s -> (StoreError -> Error m) -> IO (Persist m)
+makePersist m s h = do
+  ref<- newIORef m
+  return $ Persist { state = ref, storeEngine =  s, errorHandler =  h }
 
-stopPersist :: (Store IO s) => Persist m s -> IO (Persist m s)
+stopPersist :: Persist m -> IO (Persist m)
 stopPersist p@Persist{..} = close storeEngine >> return p
 
-instance (Model m, Store IO s, Versionable (Event m)) => Registrar IO m (Persist m s) where
+instance (Model m, Versionable (Event m)) => Registrar IO m (Persist m) where
   update p@Persist{..} (ApplyCommand c k) = lift (runCommand p c) >>= k
   update Persist{..} (GetState k)         = lift (readIORef state) >>= k
 
@@ -47,8 +51,8 @@ instance (Show (Event m), Show (Error m)) => Show (CommandResult m) where
 instance (Versionable (Event m), Versionable (Error m)) => Versionable (CommandResult m)
 instance (Serialize (Event m), Serialize (Error m)) => Serialize (CommandResult m)
 
-runCommand :: (Model m, Store IO s, Versionable (Event m))
-              => Persist m s -> Command m -> IO (Either (Error m) (Event m))
+runCommand :: (Model m, Versionable (Event m))
+              => Persist m -> Command m -> IO (Either (Error m) (Event m))
 runCommand Persist{..} command = store storeEngine pre post  >>= return . handleResult
   where
     pre = do

@@ -3,7 +3,7 @@
 This module defines only the API for this store and a client that can be passed to `Persist` command handler, but not the server.
 -}
 module Hevents.Eff.Store.WebOps(StoreAPI, storeAPI,
-                                WebStorage, openStorage) where
+                                WebStorage, openWebStorage) where
 
 import           Control.Monad.Except
 import           Data.Aeson
@@ -119,8 +119,8 @@ instance Store IO WebStorage where
 toString :: URI -> String
 toString uri = uriToString id uri ""
 
-openStorage :: Version -> SHA1 -> URI -> Scheme -> Port -> String -> Text.Text -> IO WebStorage
-openStorage version sha1 uri schem port prefix name = do
+openWebStorage :: Version -> SHA1 -> URI -> Scheme -> Port -> String -> Text.Text -> IO WebStorage
+openWebStorage version sha1 uri schem port prefix name = do
   mgr <- newManager defaultManagerSettings
   let baseUrl = BaseUrl schem (toString uri) port prefix
   return $ WebStorage baseUrl mgr name Realtime version sha1
