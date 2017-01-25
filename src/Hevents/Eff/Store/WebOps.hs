@@ -10,9 +10,11 @@ import           Data.Aeson
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Base64   as Base64
 import           Data.Either
+import           Data.Monoid
 import           Data.Proxy
 import qualified Data.Text                as Text
 import           Data.Text.Encoding
+import qualified Data.Text.Read           as Text
 import qualified Data.Vector              as A
 import           Hevents.Eff.Store
 import           Hevents.Eff.Store.Events as Events
@@ -28,6 +30,8 @@ import           System.Clock
 -- underlying log, and get all the logs. In order to accomodate for multiple clients using
 -- a single endpoint, the API parameterizes each of these operations by a name
 type StoreAPI =
+  Capture "storeId" StoreId :> Capture "version" Version        :> Put    '[JSON] ()      :<|>
+  -- Open given store at given version number
   "store" :> Capture "storeId" StoreId :> ReqBody '[JSON] Event :> Put    '[JSON] ()      :<|>
   "store" :> Capture "storeId" StoreId                          :> Get    '[JSON] [Event] :<|>
   "store" :> Capture "storeId" StoreId                          :> Delete '[JSON] ()
@@ -46,6 +50,15 @@ instance ToJSON Version where
 instance FromJSON Version where
   parseJSON (Number n) = return $ Version $ truncate n
   parseJSON e          = fail $ "cannot parse Version from JSON " ++ show e
+
+instance FromHttpApiData Version where
+  parseQueryParam t =
+    case Text.decimal t of
+      Right (n, _) -> Right $ Version n
+      Left e       -> Left $ "cannot parse version number from " <> t
+
+instance ToHttpApiData Version where
+  toQueryParam (Version v) = Text.pack $ show v
 
 instance ToJSON TimeSpec where
   toJSON (TimeSpec s ns) = toJSON $ [ toJSON s, toJSON ns ]
@@ -97,10 +110,11 @@ type Port = Int
 
 type WebM a = Manager -> BaseUrl -> ClientM a
 
-storeObject   :: StoreId  -> Event -> WebM ()
-loadObjects   :: StoreId           -> WebM [ Event ]
-deleteObjects :: StoreId           -> WebM ()
-(storeObject :<|> loadObjects :<|> deleteObjects) = client storeAPI
+openStore     :: StoreId  -> Version -> WebM ()
+storeObject   :: StoreId  -> Event   -> WebM ()
+loadObjects   :: StoreId             -> WebM [ Event ]
+deleteObjects :: StoreId             -> WebM ()
+(openStore :<|> storeObject :<|> loadObjects :<|> deleteObjects) = client storeAPI
 
 data WebStorage = WebStorage { serverBaseURI   :: BaseUrl
                              , serverManager   :: Manager
@@ -123,7 +137,11 @@ openWebStorage :: Version -> SHA1 -> URI -> Scheme -> Port -> String -> Text.Tex
 openWebStorage version sha1 uri schem port prefix name = do
   mgr <- newManager defaultManagerSettings
   let baseUrl = BaseUrl schem (toString uri) port prefix
-  return $ WebStorage baseUrl mgr name Realtime version sha1
+      storage = WebStorage baseUrl mgr name Realtime version sha1
+  res <- runExceptT $ openStore name version mgr baseUrl
+  case res of
+    Left servError -> fail $ show servError
+    Right ()       -> return storage
 
 closeStorage :: WebStorage -> IO WebStorage
 closeStorage = return
