@@ -32,6 +32,7 @@ import           System.Clock
 type StoreAPI =
   Capture "storeId" StoreId :> Capture "version" Version        :> Put    '[JSON] ()      :<|>
   -- Open given store at given version number
+  Capture "storeId" StoreId                                     :> Delete '[JSON] ()      :<|>
   "store" :> Capture "storeId" StoreId :> ReqBody '[JSON] Event :> Put    '[JSON] ()      :<|>
   "store" :> Capture "storeId" StoreId                          :> Get    '[JSON] [Event] :<|>
   "store" :> Capture "storeId" StoreId                          :> Delete '[JSON] ()
@@ -55,7 +56,7 @@ instance FromHttpApiData Version where
   parseQueryParam t =
     case Text.decimal t of
       Right (n, _) -> Right $ Version n
-      Left e       -> Left $ "cannot parse version number from " <> t
+      Left _       -> Left $ "cannot parse version number from " <> t
 
 instance ToHttpApiData Version where
   toQueryParam (Version v) = Text.pack $ show v
@@ -111,10 +112,11 @@ type Port = Int
 type WebM a = Manager -> BaseUrl -> ClientM a
 
 openStore     :: StoreId  -> Version -> WebM ()
+closeStore    :: StoreId             -> WebM ()
 storeObject   :: StoreId  -> Event   -> WebM ()
 loadObjects   :: StoreId             -> WebM [ Event ]
 deleteObjects :: StoreId             -> WebM ()
-(openStore :<|> storeObject :<|> loadObjects :<|> deleteObjects) = client storeAPI
+(openStore :<|> closeStore :<|> storeObject :<|> loadObjects :<|> deleteObjects) = client storeAPI
 
 data WebStorage = WebStorage { serverBaseURI   :: BaseUrl
                              , serverManager   :: Manager
@@ -133,10 +135,10 @@ instance Store IO WebStorage where
 toString :: URI -> String
 toString uri = uriToString id uri ""
 
-openWebStorage :: Version -> SHA1 -> URI -> Scheme -> Port -> String -> Text.Text -> IO WebStorage
-openWebStorage version sha1 uri schem port prefix name = do
+openWebStorage :: Version -> SHA1 -> URI -> Scheme -> Port -> Text.Text -> IO WebStorage
+openWebStorage version sha1 uri schem port name = do
   mgr <- newManager defaultManagerSettings
-  let baseUrl = BaseUrl schem (toString uri) port prefix
+  let baseUrl = BaseUrl schem (toString uri) port ""
       storage = WebStorage baseUrl mgr name Realtime version sha1
   res <- runExceptT $ openStore name version mgr baseUrl
   case res of
@@ -144,7 +146,12 @@ openWebStorage version sha1 uri schem port prefix name = do
     Right ()       -> return storage
 
 closeStorage :: WebStorage -> IO WebStorage
-closeStorage = return
+closeStorage ws@WebStorage{..} = do
+  res <- runExceptT $ closeStore serverStoreName serverManager serverBaseURI
+  case res of
+    Left servError -> fail $ "cannot close remote storage: " <> show servError
+    Right ()       -> return ws
+
 
 writeStorage :: (Versionable event)
              => WebStorage
