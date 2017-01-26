@@ -135,10 +135,10 @@ instance Store IO WebStorage where
 toString :: URI -> String
 toString uri = uriToString id uri ""
 
-openWebStorage :: Version -> SHA1 -> URI -> Scheme -> Port -> Text.Text -> IO WebStorage
-openWebStorage version sha1 uri schem port name = do
+openWebStorage :: Version -> SHA1 -> String -> Scheme -> Port -> String -> Text.Text -> IO WebStorage
+openWebStorage version sha1 host schem port prefix name = do
   mgr <- newManager defaultManagerSettings
-  let baseUrl = BaseUrl schem (toString uri) port ""
+  let baseUrl = BaseUrl schem host port prefix
       storage = WebStorage baseUrl mgr name Realtime version sha1
   res <- runExceptT $ openStore name version mgr baseUrl
   case res of
