@@ -5,7 +5,6 @@ This module defines only the API for this store and a client that can be passed 
 module Hevents.Eff.Store.WebOps(StoreAPI, storeAPI,
                                 WebStorage, openWebStorage) where
 
-import           Control.Monad.Except
 import           Data.Aeson
 import qualified Data.ByteString          as BS
 import qualified Data.ByteString.Base64   as Base64
@@ -19,7 +18,6 @@ import qualified Data.Vector              as A
 import           Hevents.Eff.Store
 import           Hevents.Eff.Store.Events as Events
 import           Network.HTTP.Client      (Manager, defaultManagerSettings, newManager)
-import           Network.URI
 import           Servant
 import           Servant.Client
 import           System.Clock
@@ -131,9 +129,6 @@ instance Store IO WebStorage where
   store = writeStorage
   load  = loadStorage
   reset = resetStorage
-
-toString :: URI -> String
-toString uri = uriToString id uri ""
 
 openWebStorage :: Version -> SHA1 -> String -> Scheme -> Port -> String -> Text.Text -> IO WebStorage
 openWebStorage version sha1 host schem port prefix name = do

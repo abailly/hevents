@@ -47,7 +47,10 @@ data StorageOptions = StorageOptions { storageFilePath :: FilePath
                                      -- is dependent on the number of clients this storage is consumed by and the operations
                                      -- throughput. Requests for operations will block when queue is full.
                                      }
-                      
+
+defaultOptions :: StorageOptions
+defaultOptions = StorageOptions "store.data" (Version 1) 100
+
 data QueuedOperation where
   QueuedOperation :: forall s . 
     { operation :: StoreOperation IO s,
