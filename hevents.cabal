@@ -78,7 +78,7 @@ Test-Suite tests
 
    type:              exitcode-stdio-1.0
    main-is:           test.hs
-   ghc-options:       -threaded -Wall -fno-warn-orphans -rtsopts
+   ghc-options:       -threaded -Wall -Wno-missing-signatures -fno-warn-orphans -rtsopts
    build-depends: HUnit
                 , QuickCheck
                 , aeson

@@ -1,58 +1,79 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables, TypeOperators #-}
 module Hevents.Eff.Demo where
 
 -- * Imports, stuff to make the compiler happy
 
+-- {{{
+
 import           Control.Category
 import           Control.Concurrent.Async
-import           Control.Concurrent.STM
-import           Control.Exception          (finally, throwIO)
+import           Control.Exception        (finally, throwIO)
+import           Control.Monad            (forM)
 import           Control.Monad.Except
-import qualified Control.Monad.State        as ST
-import           Control.Monad.Trans.Either
-import qualified Data.ByteString.Builder    as BS
-import           Data.Either                (rights)
+import qualified Control.Monad.State      as ST
+import qualified Data.ByteString.Builder  as BS
+import           Data.Either              (rights)
 import           Data.Proxy
-import           Data.Serialize             (Serialize, get, put)
-import           Data.Typeable
+import           Data.Serialize           (Serialize, get, put)
+import           Data.Text                (Text)
 import           Data.Void
-import           Hevents.Eff                as W
-import           Network.HTTP.Client        (Manager, defaultManagerSettings,
-                                             newManager)
-import           Prelude                    hiding (init, (.))
-import           Servant
+import           Hevents.Eff              as W
+import           Network.HTTP.Client      (defaultManagerSettings, newManager)
+import           Prelude                  hiding (init, (.))
+import           Servant                  hiding ((:>))
+import qualified Servant                  as S
 import           Servant.Client
 import           System.Environment
 import           Test.Hspec
-import           Test.QuickCheck            as Q
-import           Test.QuickCheck.Monadic    as Q
+import           Test.QuickCheck          as Q
+import           Test.QuickCheck.Monadic  as Q
+
+  -- }}}
 
 -- * Let's start writing a test...
+-- We want to model a persistent bounded counter
+
+-- {{{
 
 aCounter :: Spec
 aCounter = describe "Counter Model" $ do
+
   it "should apply events from commands given they respect bounds" $ property $
     prop_shouldApplyCommandRespectingBounds
+
   it "should not apply commands over bounds" $ property $
     prop_shouldNotApplyCommandsOverBounds
 
+  -- }}}
+
+-- ** Some properties modelling our counter as an Event Sourced entity
+--
+--  * `Counter` is a pure (e.g. side-effects free) model
+--  * `act` issues `Command`s to the model,
+--  * producing `Event`s which are `apply`ied to the model
+
+  -- {{{
 
 prop_shouldApplyCommandRespectingBounds :: Command Counter -> Bool
-prop_shouldApplyCommandRespectingBounds c@(Increment n) = let OK result = init `act` c
-                                                          in  init `apply` result == Counter n
-prop_shouldApplyCommandRespectingBounds c@(Decrement n) = let counter20 = Counter 20
-                                                              OK result = counter20 `act` c
-                                                          in  counter20 `apply` result == Counter (20 - n)
+prop_shouldApplyCommandRespectingBounds c@(Increment n) =
+  let OK result = init `act` c
+  in  init `apply` result == Counter n
+prop_shouldApplyCommandRespectingBounds c@(Decrement n) =
+  let counter20 = Counter 20
+      OK result = counter20 `act` c
+  in  counter20 `apply` result == Counter (20 - n)
 
 prop_shouldNotApplyCommandsOverBounds :: [ Command Counter ] -> Bool
 prop_shouldNotApplyCommandsOverBounds commands =
   let finalCounter = counter $ ST.execState (mapM updateModel commands) init
   in  finalCounter >= 0 && finalCounter <= 100
+
+  -- }}}
+
+-- ** Definition of the complete `Counter` model
+
+-- *** Data types for our model
+  -- {{{
 
 newtype Counter = Counter { counter :: Int } deriving (Eq,Show)
 
@@ -62,11 +83,19 @@ data CCounter  = Increment Int
 
 data ECounter = Added Int deriving (Eq,Show)
 
-data ErCounter  = OutOfBounds deriving (Eq,Show)
+data ErCounter  = OutOfBounds
+                | SystemError Text
+                deriving (Eq,Show)
 
 type instance Command Counter = CCounter
 type instance Event Counter = ECounter
 type instance Error Counter = ErCounter
+
+  -- }}}
+
+-- *** Implementation of `Command`s and `Event`s
+
+  -- {{{
 
 instance Model Counter where
 
@@ -82,15 +111,33 @@ instance Model Counter where
 
   Counter k `apply` Added n = Counter $ k + n
 
+  -- }}}
+
+-- *** We need a way to generate `Arbitrary` instances of `Command`s
+  -- {{{
+
 instance Arbitrary CCounter where
   arbitrary = oneof [ Increment <$> choose (0,20)
                     , Decrement <$> choose (0,20)
                     ]
 
+  -- }}}
+
 -- * We now have a fully functional event-sourced bounded counter *Model*
 -- let's expose some services that end users could access...
 --
--- First write tests representing services interactions
+
+-- ** Let's write tests modelling expected interactions with our service
+
+-- *** Our interaction model is simple
+--
+-- Clients of our service can:
+--
+--  * increment the counter
+--  * decrement the counter
+--  * get the current value of the counter
+
+  -- {{{
 
 data CounterAction = GetCounter
                    | IncCounter Int
@@ -105,22 +152,63 @@ instance Arbitrary CounterAction where
                         , (1, DecCounter <$> choose (0,10))
                         ]
 
+  -- }}}
+
+-- *** We want to ensure no sequence of commands breaks counter's bounds
+
+  -- {{{
+
 prop_servicesRespectCounterBounds :: [ CounterAction ] -> Property
 prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
-  results <- Q.run $ do
-    (model, storage) <- prepareContext
-    mapM (effect storage model . interpret) actions
+  -- given some underlying storage...
+  results <- Q.run $ withStorage defaultOptions $ \ storage -> do
+    -- ... and an initial model ...
+    model <- prepareModel storage
+    -- ... for all actions in the sequence ...
+    forM actions
+      -- ... interpret the action to have some effect on our model ...
+      (interpret
+      -- ... then apply effect using given storage
+       >>> effect model)
 
   assert $ all (\c -> c >= 0 && c <= 100) (rights results)
 
--- this is where we define the initial state of our services and model
-prepareContext = (,)           <$>
-  newTVarIO (W.init :: Counter) <*>
-  atomically W.makeMemoryStore
+  -- }}}
 
--- defines how to interpret our action model in terms of actual services
+-- ** Implement an effectful service on top of a pure model
 
-type EventSourced m a = Eff (State m :> Store :> Exc ServantErr :> Lift STM :> Void) a
+-- *** `EventSourced` service is defined as the composition of several
+-- `Functor`s lifted to a ''Free Monad''
+
+  -- {{{
+
+type EventSourced m a =
+  Eff
+  -- Service maintains some parameterized `State`
+  (State m
+   -- It can raise exceptions
+   :> Exc ServantErr
+   -- It can run arbitrary IO actions
+   :> Lift IO
+   -- It can do nothing
+   :> Void)
+  -- returning some result
+  a
+
+-- An `effect` is the composition of various "handlers" for each
+-- composed `Functor`
+effect storage = runLift . runExc . runState storage
+
+prepareModel storage = do
+  makePersist (W.init :: Counter) storage systemError
+  where
+    systemError (IOError t) = SystemError t
+
+  -- }}}
+
+-- *** Interpretation of actions is straightforward
+
+  -- {{{
 
 interpret GetCounter     = getCounter
 interpret (IncCounter n) = increment n
@@ -130,59 +218,90 @@ getCounter :: EventSourced Counter Int
 getCounter = counter <$> getState
 
 increment :: Int -> EventSourced Counter Int
-increment n = applyCommand (Increment n) >>= storeEvent
+increment n = applyCommand (Increment n) >>= handleResult
 
 decrement :: Int -> EventSourced Counter Int
-decrement n = applyCommand (Decrement n) >>= storeEvent
+decrement n = applyCommand (Decrement n) >>= handleResult
 
-storeEvent :: Either ErCounter ECounter
+handleResult :: Either ErCounter ECounter
              -> EventSourced Counter Int
-storeEvent = either
+handleResult = either
   (throwExc . fromModelError)
-  (either (throwExc . fromDBError) (const $ counter <$> getState) <=< store)
+  (const $ counter <$> getState)
   where
     fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
-    fromDBError    e = err500 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "DB Error " ++ show e }
 
+-- This is needed to ensure proper persistence of events
 instance Serialize ECounter where
   put (Added i) = put i
   get           = Added <$> get
 
+-- Being `Versionable` means we can evolve our Model's Events incrementally
 instance Versionable ECounter
 
--- * Expose our counter services through a REST API
+  -- }}}
 
-type CounterApi = "counter" :> (Get '[JSON] Int
-                                :<|> "increment" :> Capture "inc" Int :> Get '[JSON] Int
-                                :<|> "decrement" :> Capture "dec" Int :> Get '[JSON] Int)
+-- * Let's expose our counter services through a REST API
+
+-- ** Servant provides type-safe APIs definition
+  -- {{{
+
+type CounterApi =
+  "counter" S.:> (Get '[JSON] Int
+                   :<|> "increment" S.:> Capture "inc" Int S.:> Get '[JSON] Int
+                   :<|> "decrement" S.:> Capture "dec" Int S.:> Get '[JSON] Int)
 
 counterApi :: Proxy CounterApi
 counterApi = Proxy
 
--- * Let's write a test for our API against actual services, using user-centric actions
+  -- }}}
+
+-- ** Let's write a test for our API against actual services
+-- We use the same client-centric actions definitions than before
+
+  -- {{{
+
 prop_counterServerImplementsCounterApi :: [ CounterAction ] -> Property
 prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
   let baseUrl = BaseUrl Http "localhost" 8082 ""
-  results <- Q.run $ do
+  results <- Q.run $ withStorage defaultOptions $ \ storage -> do
     mgr <- newManager defaultManagerSettings
-    (model, storage) <- prepareContext
-    server <- W.runWebServerErr 8082 counterApi (Nat $ ExceptT . effect storage model) handler
-    mapM (runClient mgr baseUrl) actions `finally` cancel server
+    model <- prepareModel storage
+    server <- W.runWebServerErr 8082 counterApi (Nat $ ExceptT . effect model) handler
+    mapM (interpretAPI $ ClientEnv mgr baseUrl) actions `finally` cancel server
 
   assert $ all (\c -> c >= 0 && c <= 100) results
 
-runClient m b GetCounter     = either throwIO return =<< runExceptT (counterState m b)
-runClient m b (IncCounter n) = either throwIO return =<< runExceptT (incCounter n m b)
-runClient m b (DecCounter n) = either throwIO return =<< runExceptT (decCounter n m b)
+  -- }}}
+
+-- *** Actions are interpreted as REST calls from an HTTP client
+
+  -- {{{
+
+interpretAPI env GetCounter     = either throwIO return =<< runClientM (counterState) env
+interpretAPI env (IncCounter n) = either throwIO return =<< runClientM (incCounter n) env
+interpretAPI env (DecCounter n) = either throwIO return =<< runClientM (decCounter n) env
 
 counterState :<|> incCounter :<|> decCounter = client counterApi
 
+  -- }}}
+
+-- *** Server-side handler is the composition of already defined service handlers
+  -- {{{
+
 handler = getCounter :<|> increment :<|> decrement
 
+  -- }}}
+
 -- * Main server
+  -- {{{
 
 main :: IO ()
 main = do
   [port] <- getArgs
-  (model, storage) <- prepareContext
-  W.runWebServerErr (Prelude.read port) counterApi (Nat $ ExceptT . effect storage model) handler >>= wait
+  withStorage defaultOptions $ \ storage -> do
+    model <- prepareModel storage
+    server <- W.runWebServerErr (Prelude.read port) counterApi (Nat $ ExceptT . effect model) handler
+    wait server
+
+  -- }}}
