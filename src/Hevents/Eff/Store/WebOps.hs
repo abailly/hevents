@@ -109,7 +109,7 @@ type StoreId = Text.Text
 
 type Port = Int
 
-type WebM a = Manager -> BaseUrl -> ClientM a
+type WebM a = ClientM a
 
 openStore     :: StoreId  -> Version -> WebM ()
 closeStore    :: StoreId             -> WebM ()
@@ -140,14 +140,14 @@ openWebStorage version sha1 host schem port prefix name = do
   mgr <- newManager defaultManagerSettings
   let baseUrl = BaseUrl schem host port prefix
       storage = WebStorage baseUrl mgr name Realtime version sha1
-  res <- runExceptT $ openStore name version mgr baseUrl
+  res <- runClientM (openStore name version) (ClientEnv mgr baseUrl)
   case res of
     Left servError -> fail $ show servError
     Right ()       -> return storage
 
 closeStorage :: WebStorage -> IO WebStorage
 closeStorage ws@WebStorage{..} = do
-  res <- runExceptT $ closeStore serverStoreName serverManager serverBaseURI
+  res <- runClientM (closeStore serverStoreName) (ClientEnv serverManager serverBaseURI)
   case res of
     Left servError -> fail $ "cannot close remote storage: " <> show servError
     Right ()       -> return ws
@@ -164,7 +164,7 @@ writeStorage WebStorage{..} pre post = do
     Right e    -> do
       timestamp <- getTime serverClock
       let storedEvent = StoredEvent serverVersion timestamp serverSHA1 $ write serverVersion e
-      res <- runExceptT $ storeObject serverStoreName storedEvent serverManager serverBaseURI
+      res <- runClientM (storeObject serverStoreName storedEvent) (ClientEnv serverManager serverBaseURI)
       let finalResult = case res of
             Left servError -> OpFailed $ show servError
             Right ()       -> WriteSucceed e
@@ -173,7 +173,7 @@ writeStorage WebStorage{..} pre post = do
 
 loadStorage ::(Versionable event) => WebStorage -> IO (StorageResult event)
 loadStorage WebStorage{..} = do
-  res <- runExceptT $ loadObjects serverStoreName serverManager serverBaseURI
+  res <- runClientM (loadObjects serverStoreName) (ClientEnv serverManager serverBaseURI)
   case res of
     Left err  -> return $ OpFailed $ show err
     Right evs -> let (errs, events) = partitionEithers $ map (Events.read serverVersion . event) evs
@@ -185,7 +185,7 @@ loadStorage WebStorage{..} = do
 
 resetStorage ::WebStorage -> IO (StorageResult ())
 resetStorage WebStorage{..} = do
-  res <- runExceptT $ deleteObjects serverStoreName serverManager serverBaseURI
+  res <- runClientM (deleteObjects serverStoreName) (ClientEnv serverManager serverBaseURI)
   case res of
     Left err -> return $ OpFailed $ show err
     Right _  -> return $ ResetSucceed
