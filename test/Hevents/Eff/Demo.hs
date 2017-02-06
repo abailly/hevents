@@ -1,56 +1,65 @@
-{-# LANGUAGE DataKinds, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables, TypeOperators #-}
-module Hevents.Eff.Demo where
+
+{-
+      Event Sourcing, Functionally
+      ============================
+
+ * A report on my experience building a system based on
+   Event Sourcing, in Haskell, over the past few years
+ * How a pure language can help us model a "business domain"
+   yet provide strong technical guarantees
+ * How a sophisticated type-system can help us build flexible
+   and maintainable software
+
+-}
+
+{-
+       Arnaud Bailly - arnaud@gorillaspace.co
+
+ * 20 years experience in Java
+
+ * Been writing Haskell code since 2001
+
+ * Repented agile coach
+
+ * Now CTO at https://gorillaspace.co to change how companies
+   manage office space
+-}
 
 -- * Imports, stuff to make the compiler happy
 
 -- {{{
+{-# LANGUAGE DataKinds, FlexibleInstances, InstanceSigs, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables,
+             TypeOperators #-}
+module Hevents.Eff.Demo where
 
-import           Control.Category
-import           Control.Concurrent.Async
-import           Control.Exception        (finally, throwIO)
-import           Control.Monad            (forM)
-import           Control.Monad.Except
-import qualified Control.Monad.State      as ST
-import qualified Data.ByteString.Builder  as BS
-import           Data.Either              (rights)
-import           Data.Proxy
-import           Data.Serialize           (Serialize, get, put)
-import           Data.Text                (Text)
-import           Data.Void
-import           Hevents.Eff              as W
-import           Network.HTTP.Client      (defaultManagerSettings, newManager)
-import           Prelude                  hiding (init, (.))
-import           Servant                  hiding ((:>))
-import qualified Servant                  as S
-import           Servant.Client
-import           System.Environment
-import           Test.Hspec
-import           Test.QuickCheck          as Q
-import           Test.QuickCheck.Monadic  as Q
+import           Hevents.Eff.Stuff
+import           Prelude           hiding (id, init, (.))
 
   -- }}}
 
 -- * Let's start writing a test...
--- We want to model a persistent bounded counter
+-- We want to model a bounded counter
 
 -- {{{
 
 aCounter :: Spec
 aCounter = describe "Counter Model" $ do
 
-  it "should apply events from commands given they respect bounds" $ property $
-    prop_shouldApplyCommandRespectingBounds
+  it "should apply commands given they respect bounds" $
+    property $ prop_shouldApplyCommandRespectingBounds
 
-  it "should not apply commands over bounds" $ property $
-    prop_shouldNotApplyCommandsOverBounds
+  it "should not apply commands over bounds" $
+    property $ prop_shouldNotApplyCommandsOverBounds
 
   -- }}}
 
--- ** Some properties modelling our counter as an Event Sourced entity
+-- ** Some properties modelling our counter as an
+--    Event Sourced entity
 --
 --  * `Counter` is a pure (e.g. side-effects free) model
 --  * `act` issues `Command`s to the model,
 --  * producing `Event`s which are `apply`ied to the model
+--  * QuickCheck generates `Command` to test
 
   -- {{{
 
@@ -65,7 +74,7 @@ prop_shouldApplyCommandRespectingBounds c@(Decrement n) =
 
 prop_shouldNotApplyCommandsOverBounds :: [ Command Counter ] -> Bool
 prop_shouldNotApplyCommandsOverBounds commands =
-  let finalCounter = counter $ ST.execState (mapM updateModel commands) init
+  let finalCounter = counter $ execState (mapM updateModel commands) init
   in  finalCounter >= 0 && finalCounter <= 100
 
   -- }}}
@@ -75,7 +84,12 @@ prop_shouldNotApplyCommandsOverBounds commands =
 -- *** Data types for our model
   -- {{{
 
-newtype Counter = Counter { counter :: Int } deriving (Eq,Show)
+newtype Counter = Counter { counter :: Int }
+  deriving (Eq,Show)
+
+type instance Command Counter = CCounter
+type instance Event Counter = ECounter
+type instance Error Counter = ErCounter
 
 data CCounter  = Increment Int
                | Decrement Int
@@ -87,10 +101,6 @@ data ErCounter  = OutOfBounds
                 | SystemError Text
                 deriving (Eq,Show)
 
-type instance Command Counter = CCounter
-type instance Event Counter = ECounter
-type instance Error Counter = ErCounter
-
   -- }}}
 
 -- *** Implementation of `Command`s and `Event`s
@@ -100,7 +110,8 @@ type instance Error Counter = ErCounter
 instance Model Counter where
 
   init = Counter 0
-
+  act :: Counter -> Command Counter
+      -> Result Counter
   Counter k `act` Increment n = if k + n <= 100
                                 then OK $ Added n
                                 else KO OutOfBounds
@@ -109,11 +120,14 @@ instance Model Counter where
                                 then OK $ Added (-n)
                                 else KO OutOfBounds
 
+  apply :: Counter -> Event Counter
+        -> Counter
   Counter k `apply` Added n = Counter $ k + n
 
   -- }}}
 
--- *** We need a way to generate `Arbitrary` instances of `Command`s
+-- *** We need a way to generate `Arbitrary` instances
+--     of `Command`s
   -- {{{
 
 instance Arbitrary CCounter where
@@ -154,14 +168,15 @@ instance Arbitrary CounterAction where
 
   -- }}}
 
--- *** We want to ensure no sequence of commands breaks counter's bounds
+-- *** We want to ensure no sequence of commands breaks
+--     counter's bounds
 
   -- {{{
 
 prop_servicesRespectCounterBounds :: [ CounterAction ] -> Property
-prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
+prop_servicesRespectCounterBounds actions = monadicIO $ do
   -- given some underlying storage...
-  results <- Q.run $ withStorage defaultOptions $ \ storage -> do
+  results <- run $ withStorage defaultOptions $ \ storage -> do
     -- ... and an initial model ...
     model <- prepareModel storage
     -- ... for all actions in the sequence ...
@@ -171,14 +186,16 @@ prop_servicesRespectCounterBounds actions = Q.monadicIO $ do
       -- ... then apply effect using given storage
        >>> effect model)
 
+  -- check all valid results respect bounds
   assert $ all (\c -> c >= 0 && c <= 100) (rights results)
 
   -- }}}
 
 -- ** Implement an effectful service on top of a pure model
 
--- *** `EventSourced` service is defined as the composition of several
--- `Functor`s lifted to a ''Free Monad''
+-- *** `EventSourced` service is defined as the composition of
+-- several `Functor`s lifted to a ''Free Monad'', e.g. several
+-- "languages"
 
   -- {{{
 
@@ -200,7 +217,7 @@ type EventSourced m a =
 effect storage = runLift . runExc . runState storage
 
 prepareModel storage = do
-  makePersist (W.init :: Counter) storage systemError
+  makePersist (init :: Counter) storage systemError
   where
     systemError (IOError t) = SystemError t
 
@@ -229,7 +246,7 @@ handleResult = either
   (throwExc . fromModelError)
   (const $ counter <$> getState)
   where
-    fromModelError e = err400 { errBody = BS.toLazyByteString $ BS.stringUtf8 $ "Invalid command " ++ show e }
+    fromModelError e = err400 { errBody = toLazyByteString $ stringUtf8 $ "Invalid command " ++ show e }
 
 -- This is needed to ensure proper persistence of events
 instance Serialize ECounter where
@@ -247,9 +264,10 @@ instance Versionable ECounter
   -- {{{
 
 type CounterApi =
-  "counter" S.:> (Get '[JSON] Int
-                   :<|> "increment" S.:> Capture "inc" Int S.:> Get '[JSON] Int
-                   :<|> "decrement" S.:> Capture "dec" Int S.:> Get '[JSON] Int)
+  "counter" ::>
+  (Get '[JSON] Int
+    :<|> "increment" ::> Capture "inc" Int ::> Get '[JSON] Int
+    :<|> "decrement" ::> Capture "dec" Int ::> Get '[JSON] Int)
 
 counterApi :: Proxy CounterApi
 counterApi = Proxy
@@ -261,14 +279,17 @@ counterApi = Proxy
 
   -- {{{
 
-prop_counterServerImplementsCounterApi :: [ CounterAction ] -> Property
-prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
+prop_counterServerImplementsCounterApi
+  :: [ CounterAction ] -> Property
+prop_counterServerImplementsCounterApi actions = monadicIO $ do
   let baseUrl = BaseUrl Http "localhost" 8082 ""
-  results <- Q.run $ withStorage defaultOptions $ \ storage -> do
+  results <- run $ withStorage defaultOptions $ \ storage -> do
     mgr <- newManager defaultManagerSettings
     model <- prepareModel storage
-    server <- W.runWebServerErr 8082 counterApi (Nat $ ExceptT . effect model) handler
-    mapM (interpretAPI $ ClientEnv mgr baseUrl) actions `finally` cancel server
+    server <- runWebServerErr 8082 counterApi
+              (Nat $ ExceptT . effect model) handler
+    mapM (interpretAPI $ ClientEnv mgr baseUrl) actions
+      `finally` cancel server
 
   assert $ all (\c -> c >= 0 && c <= 100) results
 
@@ -278,9 +299,14 @@ prop_counterServerImplementsCounterApi actions = Q.monadicIO $ do
 
   -- {{{
 
-interpretAPI env GetCounter     = either throwIO return =<< runClientM (counterState) env
-interpretAPI env (IncCounter n) = either throwIO return =<< runClientM (incCounter n) env
-interpretAPI env (DecCounter n) = either throwIO return =<< runClientM (decCounter n) env
+interpretAPI env GetCounter     =
+  rethrowError =<< runClientM (counterState) env
+interpretAPI env (IncCounter n) =
+  rethrowError =<< runClientM (incCounter n) env
+interpretAPI env (DecCounter n) =
+  rethrowError =<< runClientM (decCounter n) env
+
+rethrowError = either throwIO return
 
 counterState :<|> incCounter :<|> decCounter = client counterApi
 
@@ -301,7 +327,24 @@ main = do
   [port] <- getArgs
   withStorage defaultOptions $ \ storage -> do
     model <- prepareModel storage
-    server <- W.runWebServerErr (Prelude.read port) counterApi (Nat $ ExceptT . effect model) handler
+    server <- runWebServerErr (Prelude.read port) counterApi (Nat $ ExceptT . effect model) handler
     wait server
 
   -- }}}
+
+{-
+
+ * Code is available online: https://github.com/abailly/hevents
+
+ * There are slides:
+   http://abailly.github.io/slides/life-beyond-relational-db.html
+
+ * This is still a work in progress. There are lots of areas
+   I would like to explore...
+
+ * Replicated and strongly consistent backend, aka. Raft
+ * Cryptographically signed ledger to store events,
+   aka. blockchain
+ * Improved boostrapping and boilerplate handling
+
+-}
