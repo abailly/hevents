@@ -40,6 +40,12 @@ class Model a where
 data Result a = KO (Error a)
               | OK (Event a)
 
+
+-- | Combines two `Result`s and stops on the first failure.
+(+>) :: Result a -> Result a -> Result a
+(OK _) +> a = a
+e      +> _ = e
+
 -- | Helper function to run a command and immediately apply the result on model, returning updated state and result.
 -- This builds a `State` instance that can be used.
 updateModel :: (Model a) => Command a -> State a (Result a)
