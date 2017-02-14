@@ -4,7 +4,7 @@ import           Data.Proxy
 import           Data.Serialize
 import           Data.Text          (Text, pack)
 import           Data.Text.Encoding
-import           GHC.TypeLits
+import           GHC.TypeLits as Types
 import           Test.Hspec
 import           Test.QuickCheck
 
@@ -45,10 +45,12 @@ instance Apply (Ap f a b) d b where
 -- Need a closed type family otherwise overlapping instances conflict
 type family (:!) a (p :: [Nat]) :: * where
   a                  :! '[]     = a
-  (Ap f a b :-: c)   :! (0 : k) = a :! k
+  (Ap f a b)         :! (0 : k) = a :! k
   (a :-: b)          :! (0 : k) = a :! k
   (a :-: b)          :! (n : k) = b :! (n -1 : k)
-  a                  :! '[0]     = a
+  a                  :! '[0]    = a
+  a                  :! k       = TypeError (Types.Text "The type " :<>: ShowType a :<>:
+                                             Types.Text " is not indexable with " :<>: ShowType k )
 
 
                                    
