@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternSynonyms, AllowAmbiguousTypes, DataKinds, GADTs, PolyKinds #-}
+{-# LANGUAGE PatternSynonyms, ScopedTypeVariables, AllowAmbiguousTypes, DataKinds, KindSignatures, GADTs, PolyKinds #-}
 import           Data.ByteString    (ByteString)
 import           Data.Proxy
 import           Data.Serialize
@@ -19,6 +19,7 @@ pattern a :-: b = (a ,b)
 data Ap f a b where
   Ap :: (Apply f a b) => f -> a -> Ap f a b
 
+-- | Generalized application of a "function" `f` to an argument `a` yielding a result `b`
 class Apply f a b | f a -> b where
   apply :: f -> a -> b
 
@@ -28,11 +29,11 @@ instance Apply (a -> b) a b where
 -- instance Apply (a -> b) (a :&: ()) b where
 --   apply f (a :&: _) = f a
 
-instance (Apply (b -> c) b c) => Apply (a -> b -> c) (a :-: b) c where
-  apply f (a :-: b) = apply (f a) b
+instance (Apply k b c) => Apply (a -> k) (a :-: b) c where
+  apply f (a :-: b) = apply (apply f a) b
 
-instance Apply (a -> b) (Ap f c a) b where
-  apply f ap = f $ apply ap ()
+instance (Apply f c a) => Apply (a -> b) (Ap f c a) b where
+  apply f (Ap g a) = apply f (apply g a)
   
 instance (Apply (b -> c) b c) =>  Apply (a -> b -> c) (Ap f c a :-: b) c where
   apply f (ap :-: b) = apply (f $ apply ap ()) b
@@ -53,34 +54,32 @@ type family (:!) a (p :: [Nat]) :: * where
                                              Types.Text " is not indexable with " :<>: ShowType k )
 
 -- | Defines how to `graft` value inside another structure
-class Graft a path b where
-  graft :: path -> a -> b -> b
+class Graft a (path :: [ Nat ]) b where
+  graft :: proxy path -> a -> b -> b
 
-instance Graft a (Proxy '[0]) (a :-: b) where
-  graft _ a (_ :-: b) = a :-: b
-
-instance Graft a (Proxy '[]) a where
+instance Graft a '[] a where
   graft _ a _ = a
 
-instance (Graft a (Proxy k) b) => Graft a (Proxy (0 ': k)) (b :-: c) where
-  graft _ a (b :-: c) = graft p a b :-: c
-    where
-      p = Proxy :: Proxy k
-      
-instance (Graft a (Proxy (n-1 : k)) c) => Graft a (Proxy (n ': k)) (b :-: c) where
-  graft _ a (b :-: c) = b :-:  graft p a c
-    where
-      p = Proxy :: Proxy (n-1 : k)
-      
-instance (Graft a (Proxy k) b) => Graft a (Proxy (0 ': k)) (Ap f b c) where
-  graft _ a (Ap f b) = Ap f (graft p a b)
-    where
-      p = Proxy :: Proxy k
+instance Graft a '[0] a where
+  graft _ a _ = a
 
-g = graft idx "foo" obj
+instance Graft a '[0] (a :-: b) where
+  graft _ a (a' :-: b) = graft (Proxy :: Proxy '[]) a a' :-: b
+  
+instance (Graft a k b) => Graft a k (Ap f b c) where
+  graft _ a (Ap f b) = Ap f (graft (Proxy :: Proxy k) a b)
+
+instance (Graft a k b) => Graft a (0 ': k) (b :-: c) where
+  graft _ a (b :-: c) = graft (Proxy :: Proxy k) a b :-: c
+      
+instance (Graft a (n-1 : k) c) => Graft a (n ': k) (b :-: c) where
+  graft _ a (b :-: c) = b :-:  graft (Proxy :: Proxy (n-1 : k)) a c
+      
+g = graft idx ("foo" :: Text) obj1
   where
-    idx = Proxy :: Proxy '[1,0]
-    obj = Ap Obj3 (Ap F1 ((12 :: Int):-: ("bar" :: Text)) :-: Ap F2 ("baz" :: Text))
+    idx = Proxy :: Proxy '[1]
+    obj1 = Ap F1 ((12 :: Int) :-: ("bar" :: Text))
+--    obj = Ap Obj3 (obj1 :-: Ap F2 ("baz" :: Text))
 
 -- -- Basic utility for serializing text as Utf8 encoded bytestring
 -- instance Serialize Text where
