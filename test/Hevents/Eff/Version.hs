@@ -52,8 +52,36 @@ type family (:!) a (p :: [Nat]) :: * where
   a                  :! k       = TypeError (Types.Text "The type " :<>: ShowType a :<>:
                                              Types.Text " is not indexable with " :<>: ShowType k )
 
+-- | Defines how to `graft` value inside another structure
+class Graft a path b where
+  graft :: path -> a -> b -> b
 
-                                   
+instance Graft a (Proxy '[0]) (a :-: b) where
+  graft _ a (_ :-: b) = a :-: b
+
+instance Graft a (Proxy '[]) a where
+  graft _ a _ = a
+
+instance (Graft a (Proxy k) b) => Graft a (Proxy (0 ': k)) (b :-: c) where
+  graft _ a (b :-: c) = graft p a b :-: c
+    where
+      p = Proxy :: Proxy k
+      
+instance (Graft a (Proxy (n-1 : k)) c) => Graft a (Proxy (n ': k)) (b :-: c) where
+  graft _ a (b :-: c) = b :-:  graft p a c
+    where
+      p = Proxy :: Proxy (n-1 : k)
+      
+instance (Graft a (Proxy k) b) => Graft a (Proxy (0 ': k)) (Ap f b c) where
+  graft _ a (Ap f b) = Ap f (graft p a b)
+    where
+      p = Proxy :: Proxy k
+
+g = graft idx "foo" obj
+  where
+    idx = Proxy :: Proxy '[1,0]
+    obj = Ap Obj3 (Ap F1 ((12 :: Int):-: ("bar" :: Text)) :-: Ap F2 ("baz" :: Text))
+
 -- -- Basic utility for serializing text as Utf8 encoded bytestring
 -- instance Serialize Text where
 --   get = decodeUtf8 <$> get
@@ -198,3 +226,20 @@ data Obj4 = Obj4 { f4 :: F1 }
 -- bs2 :: ByteString
 -- bs2 = runPut $ put (Obj2 (F1 12 "bar") "foo")
 
+type family Length (xs :: [k]) :: Nat where 
+  Length '[] = 0 
+  Length (x ': xs) = 1 + Length xs 
+
+data TList n l where 
+  TList :: (Length xs ~ n) => TList n xs
+
+data (:~:) a b where Refl :: a :~: a 
+
+test :: TList n l -> Length l :~: n 
+test TList = Refl
+
+-- bad :: TList 3 '[Int, Bool]
+-- bad = TList 
+
+-- good :: TList 2 '[Int, Bool]
+-- good = TList 
