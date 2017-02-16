@@ -26,20 +26,21 @@ class Apply f a b | f a -> b where
 instance Apply (a -> b) a b where
   apply f a = f a
 
--- instance Apply (a -> b) (a :&: ()) b where
---   apply f (a :&: _) = f a
+instance (Apply f c a) => Apply (a -> b) (Ap f c a) b where
+  apply f (Ap k a) = apply f (apply k a)
 
-instance (Apply k b c) => Apply (a -> k) (a :-: b) c where
+instance (Apply k c d, Apply (a -> k) b k) => Apply (a -> k) (b :-: c) d where
   apply f (a :-: b) = apply (apply f a) b
 
-instance (Apply f c a) => Apply (a -> b) (Ap f c a) b where
-  apply f (Ap g a) = apply f (apply g a)
-  
-instance (Apply (b -> c) b c) =>  Apply (a -> b -> c) (Ap f c a :-: b) c where
-  apply f (ap :-: b) = apply (f $ apply ap ()) b
-  
 instance Apply (Ap f a b) d b where
   apply (Ap f a) _ = apply f a
+
+obj1 = Ap F1 ((12 :: Int) :-: ("bar" :: Text))
+obj2 = Ap F2 ("baz" :: Text)
+obj3 = Ap F3 ((12 :: Int) :-: True :-: ("bar" :: Text))
+obj4 = Ap F4 obj1
+obj  = Ap Obj3 obj1
+obj' = Ap Obj3 (obj1 :-: obj2)
   
   
 -- | Index over a tree of applications and arguments
@@ -69,17 +70,15 @@ instance Graft a '[0] (a :-: b) where
 instance (Graft a k b) => Graft a k (Ap f b c) where
   graft _ a (Ap f b) = Ap f (graft (Proxy :: Proxy k) a b)
 
-instance (Graft a k b) => Graft a (0 ': k) (b :-: c) where
-  graft _ a (b :-: c) = graft (Proxy :: Proxy k) a b :-: c
-      
-instance (Graft a (n-1 : k) c) => Graft a (n ': k) (b :-: c) where
+instance (Graft a (n - 1 : k) c) => Graft a (n ': k) (b :-: c) where
   graft _ a (b :-: c) = b :-:  graft (Proxy :: Proxy (n-1 : k)) a c
       
 g = graft idx ("foo" :: Text) obj1
-  where
-    idx = Proxy :: Proxy '[1]
-    obj1 = Ap F1 ((12 :: Int) :-: ("bar" :: Text))
---    obj = Ap Obj3 (obj1 :-: Ap F2 ("baz" :: Text))
+
+g2 = graft idx2 ("bar" :: Text) obj'
+
+idx = Proxy :: Proxy '[1]
+idx2 = Proxy :: Proxy '[1,0]
 
 -- -- Basic utility for serializing text as Utf8 encoded bytestring
 -- instance Serialize Text where
@@ -168,6 +167,12 @@ data F1 = F1 { ff1 :: Int, ff2 :: Text }
 -- version 3 transforms the nested data type
 data F2 = F2 { ff12 :: Text }
   deriving (Show)
+
+data F3 = F3 Int Bool Text
+  deriving Show
+
+data F4 = F4 F1
+  deriving Show
 
 -- instance Serialize F2 where
 --   get = F2 <$> get
