@@ -61,21 +61,24 @@ class Graft a (path :: [ Nat ]) b where
 instance Graft a '[] a where
   graft _ a _ = a
 
-instance Graft a '[0] a where
+instance Graft a (0 : k) a where
   graft _ a _ = a
 
-instance Graft a '[0] (a :-: b) where
+instance Graft a (0 : k) (a :-: b) where
   graft _ a (a' :-: b) = graft (Proxy :: Proxy '[]) a a' :-: b
   
 instance (Graft a k b) => Graft a k (Ap f b c) where
   graft _ a (Ap f b) = Ap f (graft (Proxy :: Proxy k) a b)
 
+instance (Graft a k b) => Graft a (0 ': k) (b :-: c) where
+  graft _ a (b :-: c) = graft (Proxy :: Proxy k) a b :-: c
+      
 instance (Graft a (n - 1 : k) c) => Graft a (n ': k) (b :-: c) where
   graft _ a (b :-: c) = b :-:  graft (Proxy :: Proxy (n-1 : k)) a c
       
 g = graft idx ("foo" :: Text) obj1
 
-g2 = graft idx2 ("bar" :: Text) obj'
+g2 = graft idx2 ("baz" :: Text) obj'
 
 idx = Proxy :: Proxy '[1]
 idx2 = Proxy :: Proxy '[1,0]
