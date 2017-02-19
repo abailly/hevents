@@ -1,4 +1,4 @@
-{-# LANGUAGE PatternSynonyms, ScopedTypeVariables, AllowAmbiguousTypes, DataKinds, KindSignatures, GADTs, PolyKinds #-}
+{-# LANGUAGE PatternSynonyms, ScopedTypeVariables, AllowAmbiguousTypes, DataKinds, KindSignatures, GADTs, PolyKinds, DeriveFunctor #-}
 import           Data.ByteString    (ByteString)
 import           Data.Proxy
 import           Data.Serialize
@@ -14,6 +14,21 @@ infixr 5 :-:
 
 pattern (:-:) :: a -> b -> (a ,b)
 pattern a :-: b = (a ,b)
+
+-- | Compute a path in a tree of tuple values
+data Tree a = Leaf a
+            | Node (Tree a) (Tree a)
+            deriving (Functor)
+
+pattern a :|: b = Node a b
+
+infixr 5 :|:
+  
+path :: [ Int ] -> Tree a -> a
+path []    (Leaf a)   = a
+path [0]   (Leaf a)   = a
+path (0:n) (Node l r) = path n l
+path (k:n) (Node l r) = path (k-1:n) r
 
 -- | Vertical composition. "applies" A function to its arguments, yielding a result
 data Ap f a b where
@@ -40,7 +55,7 @@ obj2 = Ap F2 ("baz" :: Text)
 obj3 = Ap F3 ((12 :: Int) :-: True :-: ("bar" :: Text))
 obj4 = Ap F4 obj1
 obj  = Ap Obj3 obj1
-obj' = Ap Obj3 (obj1 :-: obj2)
+obj' = Ap Obj3' (obj1 :-: obj3)
   
   
 -- | Index over a tree of applications and arguments
@@ -48,6 +63,7 @@ obj' = Ap Obj3 (obj1 :-: obj2)
 type family (:!) a (p :: [Nat]) :: * where
   a                  :! '[]     = a
   (Ap f a b)         :! (0 : k) = a :! k
+  (Ap f a b)         :! (n : k) = a :! (n : k)
   (a :-: b)          :! (0 : k) = a :! k
   (a :-: b)          :! (n : k) = b :! (n -1 : k)
   a                  :! '[0]    = a
@@ -55,33 +71,33 @@ type family (:!) a (p :: [Nat]) :: * where
                                              Types.Text " is not indexable with " :<>: ShowType k )
 
 -- | Defines how to `graft` value inside another structure
-class Graft a (path :: [ Nat ]) b where
+data Natural = Z
+             | S Natural
+
+class Graft a (path :: [ Natural ]) b where
   graft :: proxy path -> a -> b -> b
 
 instance Graft a '[] a where
   graft _ a _ = a
 
-instance Graft a (0 : k) a where
+instance Graft a '[Z] a where
   graft _ a _ = a
 
-instance Graft a (0 : k) (a :-: b) where
-  graft _ a (a' :-: b) = graft (Proxy :: Proxy '[]) a a' :-: b
-  
+instance (Graft a k b) => Graft a (Z ': k) (b :-: c) where
+   graft _ a (b :-: c) = graft (Proxy :: Proxy k) a b :-: c
+
 instance (Graft a k b) => Graft a k (Ap f b c) where
   graft _ a (Ap f b) = Ap f (graft (Proxy :: Proxy k) a b)
-
-instance (Graft a k b) => Graft a (0 ': k) (b :-: c) where
-  graft _ a (b :-: c) = graft (Proxy :: Proxy k) a b :-: c
       
-instance (Graft a (n - 1 : k) c) => Graft a (n ': k) (b :-: c) where
-  graft _ a (b :-: c) = b :-:  graft (Proxy :: Proxy (n-1 : k)) a c
+instance (Graft a (n : k) c) => Graft a (S n: k) (b :-: c) where
+  graft _ a (b :-: c) = b :-:  graft (Proxy :: Proxy (n : k)) a c
       
 g = graft idx ("foo" :: Text) obj1
 
-g2 = graft idx2 ("baz" :: Text) obj'
+g2 = graft idx2 ("qix" :: Text) obj'
 
-idx = Proxy :: Proxy '[1]
-idx2 = Proxy :: Proxy '[1,0]
+idx = Proxy :: Proxy '[S Z]
+idx2 = Proxy :: Proxy '[S Z, S (S Z)]
 
 -- -- Basic utility for serializing text as Utf8 encoded bytestring
 -- instance Serialize Text where
@@ -182,6 +198,7 @@ data F4 = F4 F1
 --   put F2{..} = put ff12
   
 data Obj3 = Obj3 { f31 :: F1, f32 :: F2 }
+          | Obj3'  { f31 :: F1, f33 :: F3 }
   deriving (Show)
 
 data Obj4 = Obj4 { f4 :: F1 }
