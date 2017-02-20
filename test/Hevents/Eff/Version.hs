@@ -7,6 +7,7 @@ import           Data.Text.Encoding
 import           GHC.TypeLits as Types
 import           Test.Hspec
 import           Test.QuickCheck
+import Debug.Trace
 
 -- | "Horizontal" composition, to enumerate arguments
 type a :-: b = (a, b)
@@ -81,23 +82,30 @@ instance Graft a '[] a where
   graft _ a _ = a
 
 instance Graft a '[Z] a where
-  graft _ a _ = a
-
-instance (Graft a k b) => Graft a (Z ': k) (b :-: c) where
-   graft _ a (b :-: c) = graft (Proxy :: Proxy k) a b :-: c
+  graft _ a _ = trace "graft r0" $ a
 
 instance (Graft a k b) => Graft a k (Ap f b c) where
-  graft _ a (Ap f b) = Ap f (graft (Proxy :: Proxy k) a b)
-      
+  graft _ a (Ap f b) = trace "graft Ap" $
+                       Ap f (graft (Proxy :: Proxy k) a b)
+
+-- recurse on left branch at 0 index
+instance (Graft a k b) => Graft a (Z ': k) (b :-: c) where
+   graft _ a (b :-: c) = trace "graft Left" $
+                         (graft (Proxy :: Proxy k) a b) :-: c
+
+-- recurse on right branch at n>0 index
 instance (Graft a (n : k) c) => Graft a (S n: k) (b :-: c) where
-  graft _ a (b :-: c) = b :-:  graft (Proxy :: Proxy (n : k)) a c
+  graft _ a (b :-: c) = trace "graft Right" $
+                        b :-: (graft (Proxy :: Proxy (n : k)) a c)
       
 g = graft idx ("foo" :: Text) obj1
 
-g2 = graft idx2 ("qix" :: Text) obj'
+foo = "bar" :: Text
+v = ((True :-: (12 :: Int) :-: True) :-: ((14 :: Int) :-: ("foo" :: Text)) :-: ())
+g2 = graft idx2 foo v
 
 idx = Proxy :: Proxy '[S Z]
-idx2 = Proxy :: Proxy '[S Z, S (S Z)]
+idx2 = Proxy :: Proxy (S Z ':  S Z ': '[])
 
 -- -- Basic utility for serializing text as Utf8 encoded bytestring
 -- instance Serialize Text where
