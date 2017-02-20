@@ -59,18 +59,6 @@ obj  = Ap Obj3 obj1
 obj' = Ap Obj3' (obj1 :-: obj3)
   
   
--- | Index over a tree of applications and arguments
--- Need a closed type family otherwise overlapping instances conflict
-type family (:!) a (p :: [Nat]) :: * where
-  a                  :! '[]     = a
-  (Ap f a b)         :! (0 : k) = a :! k
-  (Ap f a b)         :! (n : k) = a :! (n : k)
-  (a :-: b)          :! (0 : k) = a :! k
-  (a :-: b)          :! (n : k) = b :! (n -1 : k)
-  a                  :! '[0]    = a
-  a                  :! k       = TypeError (Types.Text "The type " :<>: ShowType a :<>:
-                                             Types.Text " is not indexable with " :<>: ShowType k )
-
 -- | Defines how to `graft` value inside another structure
 data Natural = Z
              | S Natural
@@ -88,18 +76,27 @@ instance (Graft a k b) => Graft a k (Ap f b c) where
   graft _ a (Ap f b) = Ap f (graft (Proxy :: Proxy k) a b)
 
 -- recurse on left branch at 0 index
-instance (Graft a k b) => Graft a (Z ': k) (b :-: c) where
-   graft _ a (b :-: c) = (graft (Proxy :: Proxy k) a b) :-: c
+instance (Graft a k b) => Graft a (Z ': k) (b, c) where
+   graft _ a (b, c) = (graft (Proxy :: Proxy k) a b, c)
 
 -- recurse on right branch at n>0 index
-instance (Graft a (n : k) c) => Graft a (S n: k) (b :-: c) where
-  graft _ a (b :-: c) = b :-: (graft (Proxy :: Proxy (n : k)) a c)
+instance {-# OVERLAPPING #-} (Graft a k (c,d)) => Graft a (S Z ': k) (b, (c, d)) where
+  graft _ a (b ,(c,d)) = (b, graft (Proxy :: Proxy k) a (c,d))
+  
+instance (Graft a (n : k) c) => Graft a (S n ': k) (b, c) where
+  graft _ a (b , c) = (b, graft (Proxy :: Proxy (n : k)) a c)
       
 g = graft idx ("foo" :: Text) obj1
 
 foo = "bar" :: Text
-v = ((True :-: (12 :: Int) :-: True) :-: ((14 :: Int) :-: ("foo" :: Text)) :-: ())
-g2 = graft idx2 foo obj'
+six = 6 :: Int
+spine :: ((Int,Int), (Int,(Int,(Int,(Int,Int)))))
+spine = ( (0, 1), (1 , (2 , (3 ,(4, 5)))))
+
+g3 = graft (Proxy :: Proxy '[S Z, S (S (S (S Z)))]) six spine
+
+v = ((True :-: (12 :: Int) :-: True) :-: ((14 :: Int) :-: ("foo" :: Text)))
+--g2 = graft idx2 foo v
 
 idx = Proxy :: Proxy '[S Z]
 idx2 = Proxy :: Proxy (S Z ':  S Z ': '[])
