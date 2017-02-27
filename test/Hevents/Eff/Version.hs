@@ -80,6 +80,7 @@ instance (Graft a k b) => Graft a (Z ': k) (b, c) where
    graft _ a (b, c) = (graft (Proxy :: Proxy k) a b, c)
 
 -- recurse on right branch at n>0 index
+-- Handle edge case when traversing at end of spine
 instance {-# OVERLAPPING #-} (Graft a k (c,d)) => Graft a (S Z ': k) (b, (c, d)) where
   graft _ a (b ,(c,d)) = (b, graft (Proxy :: Proxy k) a (c,d))
   
@@ -90,10 +91,12 @@ g = graft idx ("foo" :: Text) obj1
 
 foo = "bar" :: Text
 six = 6 :: Int
-spine :: ((Int,Int), (Int,(Int,(Int,(Int,Int)))))
-spine = ( (0, 1), (1 , (2 , (3 ,(4, 5)))))
+five = 5 :: Int
+spine :: ((Int,Int), ((Int,(Int,(Int,(Int,Int)))), (Int,(Int,(Int,Int)))))
+spine = ( (0, 1), ((1 , (2 , (3 ,(4, 5)))), (1 , (2 , (3,4)))))
 
-g3 = graft (Proxy :: Proxy '[S Z, S (S (S (S Z)))]) six spine
+g3 = graft (Proxy :: Proxy '[S Z, Z, Z]) five spine
+
 
 v = ((True :-: (12 :: Int) :-: True) :-: ((14 :: Int) :-: ("foo" :: Text)))
 --g2 = graft idx2 foo v

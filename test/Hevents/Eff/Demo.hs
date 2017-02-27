@@ -1,9 +1,4 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE ScopedTypeVariables   #-}
-{-# LANGUAGE TypeOperators         #-}
+{-# LANGUAGE DataKinds, FlexibleInstances, MultiParamTypeClasses, OverloadedStrings, ScopedTypeVariables, TypeOperators #-}
 module Hevents.Eff.Demo where
 
 -- * Imports, stuff to make the compiler happy
@@ -22,8 +17,7 @@ import           Data.Serialize             (Serialize, get, put)
 import           Data.Typeable
 import           Data.Void
 import           Hevents.Eff                as W
-import           Network.HTTP.Client        (Manager, defaultManagerSettings,
-                                             newManager)
+import           Network.HTTP.Client        (Manager, defaultManagerSettings, newManager)
 import           Prelude                    hiding (init, (.))
 import           Servant
 import           Servant.Client
